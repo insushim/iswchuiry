@@ -3,7 +3,7 @@ import { immer } from 'zustand/middleware/immer';
 import { GameState, Deduction, GamePhase } from '../types';
 import { CaseGenerator } from '../core/CaseGenerator';
 import { generateId } from '../utils/helpers';
-import { DIFFICULTY_SETTINGS } from '../data/gameData';
+import { DIFFICULTY_SETTINGS, DEDUCTION_SYNONYMS } from '../data/gameData';
 
 interface GameStore extends GameState {
   // 게임 라이프사이클
@@ -43,18 +43,35 @@ const initialState: GameState = {
   currentLocation: null,
   currentCharacter: null,
   collectedEvidence: [],
+  analyzedEvidence: [],
   examinedObjects: [],
   interviewedCharacters: [],
   revealedSecrets: [],
+  revealedTimeline: [],
   deductions: [],
   confirmedFacts: [],
+  playerNotes: [],
   hintsUsed: 0,
   hintsRemaining: 5,
   score: 0,
+  maxScore: 1000,
   startTime: 0,
   playTime: 0,
   isComplete: false,
-  accusationResult: null
+  accusationResult: null,
+  achievements: [],
+  statistics: {
+    evidenceFound: 0,
+    totalEvidence: 0,
+    charactersInterviewed: 0,
+    totalCharacters: 0,
+    locationsSearched: 0,
+    totalLocations: 0,
+    deductionsMade: 0,
+    correctDeductions: 0,
+    hintsUsed: 0,
+    timeSpent: 0
+  }
 };
 
 export const useGameStore = create<GameStore>()(
@@ -159,7 +176,11 @@ export const useGameStore = create<GameStore>()(
       const character = currentCase.characters.find(c => c.id === currentCharacter);
       if (!character) return ['...'];
 
-      return character.dialogues[topic] || ['그건 잘 모르겠어요.'];
+      const dialogueOptions = character.dialogues[topic];
+      if (!dialogueOptions) return ['그건 잘 모르겠어요.'];
+
+      // DialogueOption[] 또는 string[]을 string[]으로 변환
+      return dialogueOptions.map(d => typeof d === 'string' ? d : d.response);
     },
 
     revealSecret: (characterId, secretId) => {
@@ -200,48 +221,183 @@ export const useGameStore = create<GameStore>()(
           type,
           statement,
           supportingEvidence: evidenceIds,
+          contradictingEvidence: [],
           isCorrect: null,
-          isConfirmed: false
+          isConfirmed: false,
+          confidence: 0,
+          verificationMethod: 'evidence',
+          partialCredit: 0
         });
+        state.statistics.deductionsMade++;
       });
     },
 
     confirmDeductions: () => {
-      const { currentCase, deductions } = get();
+      const { currentCase, deductions, collectedEvidence } = get();
       if (!currentCase) return { correct: 0, total: 0 };
 
       const pendingDeductions = deductions.filter(d => !d.isConfirmed).slice(0, 3);
       let correctCount = 0;
 
+      // 키워드 매칭 함수
+      const matchesKeywords = (statement: string, keywords: string[]): boolean => {
+        const normalizedStatement = statement.toLowerCase().replace(/\s+/g, '');
+        return keywords.some(kw => normalizedStatement.includes(kw.toLowerCase().replace(/\s+/g, '')));
+      };
+
+      // 부분 점수 계산 함수
+      const calculatePartialCredit = (statement: string, keywords: string[]): number => {
+        const matchCount = keywords.filter(kw =>
+          statement.toLowerCase().includes(kw.toLowerCase())
+        ).length;
+        return Math.min(matchCount / Math.max(keywords.length, 1), 1);
+      };
+
       set((state) => {
+        const caseData = state.currentCase;
+        if (!caseData) return;
+
+        const culprit = caseData.characters.find(c => c.id === caseData.culpritId);
+        const keywords = caseData.deductionKeywords;
+
         for (const deduction of pendingDeductions) {
           const stateDeduction = state.deductions.find(d => d.id === deduction.id);
-          if (stateDeduction) {
-            // 간단한 검증 로직 (실제로는 더 정교해야 함)
-            const culprit = state.currentCase?.characters.find(
-              c => c.id === state.currentCase?.culpritId
-            );
+          if (!stateDeduction) continue;
 
-            let isCorrect = false;
-            if (deduction.type === 'who' && culprit) {
-              isCorrect = deduction.statement.includes(culprit.name);
-            } else if (deduction.type === 'why') {
-              isCorrect = deduction.statement.toLowerCase().includes(
-                state.currentCase?.motive.toLowerCase().split(' ')[0] || ''
+          let isCorrect = false;
+          let partialCredit = 0;
+          let feedback = '';
+
+          const statement = deduction.statement.toLowerCase();
+
+          switch (deduction.type) {
+            case 'who': {
+              // 범인 이름 키워드 매칭
+              const whoKeywords = keywords.who || [];
+              const culpritName = culprit?.name || '';
+              const allWhoKeywords = [...whoKeywords, culpritName];
+
+              isCorrect = matchesKeywords(deduction.statement, allWhoKeywords);
+              partialCredit = isCorrect ? 1 : calculatePartialCredit(deduction.statement, allWhoKeywords);
+
+              if (isCorrect) {
+                feedback = '정확합니다! 범인을 올바르게 지목했습니다.';
+              } else {
+                feedback = '범인이 아닌 것 같습니다. 증거를 다시 검토해보세요.';
+              }
+              break;
+            }
+
+            case 'why': {
+              // 동기 키워드 매칭
+              const whyKeywords = keywords.why || [];
+              const motiveType = culprit?.motive?.type;
+              const synonyms = motiveType ? (DEDUCTION_SYNONYMS.motive[motiveType as keyof typeof DEDUCTION_SYNONYMS.motive] || []) : [];
+              const allWhyKeywords = [...whyKeywords, ...synonyms, caseData.motive];
+
+              isCorrect = matchesKeywords(deduction.statement, allWhyKeywords);
+              partialCredit = isCorrect ? 1 : calculatePartialCredit(deduction.statement, allWhyKeywords);
+
+              if (isCorrect) {
+                feedback = '정확합니다! 동기를 올바르게 파악했습니다.';
+              } else {
+                // 부분 점수 안내
+                if (partialCredit > 0.3) {
+                  feedback = '방향은 맞지만, 정확한 동기는 아닙니다.';
+                } else {
+                  feedback = '동기가 틀린 것 같습니다. 인물 관계를 다시 살펴보세요.';
+                }
+              }
+              break;
+            }
+
+            case 'how': {
+              // 방법 키워드 매칭
+              const howKeywords = keywords.how || [];
+              const methodKeywords = [...howKeywords, caseData.method];
+
+              isCorrect = matchesKeywords(deduction.statement, methodKeywords);
+              partialCredit = isCorrect ? 1 : calculatePartialCredit(deduction.statement, methodKeywords);
+
+              if (isCorrect) {
+                feedback = '정확합니다! 범행 방법을 올바르게 파악했습니다.';
+              } else {
+                feedback = '범행 방법이 다른 것 같습니다. 물리적 증거를 확인해보세요.';
+              }
+              break;
+            }
+
+            case 'when': {
+              // 시간 키워드 매칭
+              const whenKeywords = keywords.when || [];
+              const timeKeywords = [...whenKeywords, caseData.crimeTime];
+
+              isCorrect = matchesKeywords(deduction.statement, timeKeywords);
+              partialCredit = isCorrect ? 1 : calculatePartialCredit(deduction.statement, timeKeywords);
+
+              if (isCorrect) {
+                feedback = '정확합니다! 범행 시각을 올바르게 추정했습니다.';
+              } else {
+                feedback = '시간대가 다른 것 같습니다. 알리바이와 타임라인을 확인해보세요.';
+              }
+              break;
+            }
+
+            case 'where': {
+              // 장소 키워드 매칭
+              const whereKeywords = keywords.where || [];
+              const locationKeywords = [...whereKeywords, caseData.crimeLocation];
+
+              isCorrect = matchesKeywords(deduction.statement, locationKeywords);
+              partialCredit = isCorrect ? 1 : calculatePartialCredit(deduction.statement, locationKeywords);
+
+              if (isCorrect) {
+                feedback = '정확합니다! 범행 장소를 올바르게 파악했습니다.';
+              } else {
+                feedback = '장소가 다른 것 같습니다. 증거가 발견된 위치를 확인해보세요.';
+              }
+              break;
+            }
+
+            case 'connection': {
+              // 연결 추론 - 증거 간 연결 검증
+              const supportingEvidence = deduction.supportingEvidence || [];
+              const hasValidEvidence = supportingEvidence.length >= 2 &&
+                supportingEvidence.every(id => collectedEvidence.includes(id));
+
+              // 연결된 증거들이 실제로 관련이 있는지 확인
+              const relatedEvidence = caseData.evidence.filter(e =>
+                supportingEvidence.includes(e.id) &&
+                (e.linkedCharacters.includes(caseData.culpritId) || e.isCritical)
               );
-            } else {
-              // 다른 타입은 70% 확률로 정답 처리 (데모용)
-              isCorrect = Math.random() > 0.3;
-            }
 
-            stateDeduction.isCorrect = isCorrect;
-            stateDeduction.isConfirmed = true;
+              isCorrect = hasValidEvidence && relatedEvidence.length >= 1;
+              partialCredit = relatedEvidence.length / Math.max(supportingEvidence.length, 1);
 
-            if (isCorrect) {
-              correctCount++;
-              state.confirmedFacts.push(deduction.statement);
-              state.score += 40;
+              if (isCorrect) {
+                feedback = '좋은 연결입니다! 증거들의 관계를 올바르게 파악했습니다.';
+              } else {
+                feedback = '증거 간의 연결이 약합니다. 더 강력한 근거가 필요합니다.';
+              }
+              break;
             }
+          }
+
+          // 결과 업데이트
+          stateDeduction.isCorrect = isCorrect;
+          stateDeduction.isConfirmed = true;
+          stateDeduction.partialCredit = partialCredit;
+          stateDeduction.confidence = isCorrect ? 100 : Math.floor(partialCredit * 100);
+          stateDeduction.feedback = feedback;
+
+          if (isCorrect) {
+            correctCount++;
+            state.confirmedFacts.push(deduction.statement);
+            state.score += 40;
+            state.statistics.correctDeductions++;
+          } else if (partialCredit > 0.5) {
+            // 부분 점수
+            state.score += Math.floor(20 * partialCredit);
           }
         }
       });
@@ -285,15 +441,45 @@ export const useGameStore = create<GameStore>()(
         if (collectionRate > 0.8) score += 100;
       }
 
+      const deductionStats = get().deductions.reduce(
+        (acc, d) => {
+          if (d.isCorrect === true) acc.correct++;
+          if (d.isCorrect === false) acc.incorrect++;
+          return acc;
+        },
+        { correct: 0, incorrect: 0 }
+      );
+
+      const elapsedMinutes = (Date.now() - startTime) / 60000;
+      const timeBonus = elapsedMinutes < 10 ? 200 : elapsedMinutes < 20 ? 100 : 0;
+      const evidenceScore = Math.floor((collectedEvidence.length / currentCase.evidence.length) * 300);
+      const deductionScore = deductionStats.correct * 40;
+
+      const rank = score >= 1200 ? 'S' : score >= 900 ? 'A' : score >= 600 ? 'B' : score >= 400 ? 'C' : score >= 200 ? 'D' : 'F';
+
       set((state) => {
         state.isComplete = true;
         state.phase = 'reveal';
         state.accusationResult = {
           isCorrect,
           accusedId: suspectId,
-          score: Math.floor(score)
+          actualCulpritId: currentCase.culpritId,
+          evidenceScore,
+          deductionScore,
+          timeBonus,
+          totalScore: Math.floor(score),
+          rank,
+          feedback: isCorrect
+            ? ['정확한 추리였습니다! 모든 증거가 범인을 가리키고 있었습니다.']
+            : ['안타깝게도 틀렸습니다. 증거를 다시 살펴보세요.'],
+          missedClues: currentCase.evidence
+            .filter(e => e.isCritical && !collectedEvidence.includes(e.id))
+            .map(e => e.name),
+          correctDeductions: deductionStats.correct,
+          incorrectDeductions: deductionStats.incorrect
         };
         state.score += Math.floor(score);
+        state.statistics.timeSpent = Math.floor(elapsedMinutes * 60);
       });
 
       return { isCorrect, score: Math.floor(score) };
