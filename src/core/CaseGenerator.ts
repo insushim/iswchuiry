@@ -12,7 +12,7 @@ import { generateId, randomChoice, randomInt, randomSample, shuffleArray } from 
 export class CaseGenerator {
   private difficulty: Difficulty;
   private caseType: CaseType;
-  private settings: typeof DIFFICULTY_SETTINGS.medium;
+  private settings: typeof DIFFICULTY_SETTINGS[keyof typeof DIFFICULTY_SETTINGS];
 
   constructor(difficulty: Difficulty, caseType?: CaseType) {
     this.difficulty = difficulty;

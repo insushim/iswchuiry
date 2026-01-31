@@ -1,0 +1,8 @@
+name = "iswchuiry"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "./dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "iswchuiry-db"
+database_id = "4812c5a9-1049-4fd5-800e-cb51ec2da3e3"
