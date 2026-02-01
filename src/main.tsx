@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage';
 import { NewGamePage } from './pages/NewGamePage';
 import { GamePage } from './pages/GamePage';
 import { TutorialPage } from './pages/TutorialPage';
+import QADashboard from './pages/QADashboard';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -15,6 +16,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/new-game" element={<NewGamePage />} />
         <Route path="/game" element={<GamePage />} />
         <Route path="/tutorial" element={<TutorialPage />} />
+        <Route path="/qa" element={<QADashboard />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

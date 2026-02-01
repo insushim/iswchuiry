@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, BookOpen, Award, Settings, Search } from 'lucide-react';
+import { Play, BookOpen, Award, Settings, Search, TestTube2 } from 'lucide-react';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -76,6 +76,15 @@ export function HomePage() {
               설정
             </button>
           </div>
+
+          {/* QA 대시보드 (개발자용) */}
+          <button
+            onClick={() => navigate('/qa')}
+            className="mt-4 w-full py-2 flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-slate-300 border border-slate-700 rounded-lg hover:border-slate-600 transition-colors"
+          >
+            <TestTube2 size={16} />
+            QA 대시보드 (개발자)
+          </button>
         </div>
 
         {/* 하단 정보 */}
