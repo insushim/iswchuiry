@@ -1,5 +1,5 @@
 // ========================================
-// 핵심 타입 정의 v2.0 - 상업용 품질
+// DEDUCTIO v3.0 - Real Deduction Game Types
 // ========================================
 
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
@@ -8,50 +8,53 @@ export type GamePhase = 'intro' | 'investigation' | 'interrogation' | 'deduction
 export type EvidenceType = 'physical' | 'testimony' | 'document' | 'digital' | 'forensic';
 export type RelationshipType = 'friend' | 'rival' | 'family' | 'lover' | 'colleague' | 'enemy' | 'stranger';
 
-// Knox 10계명 검증 결과
+// Logic Grid cell state for elimination
+export type CellState = 'unknown' | 'possible' | 'eliminated' | 'confirmed';
+
+// Deduction tool tabs
+export type DeductionTab = 'evidence-board' | 'logic-grid' | 'timeline' | 'hypothesis' | 'notes';
+
+// Knox 10 Rules validation
 export interface KnoxValidation {
-  rule1_culpritEarlyAppearance: boolean;  // 범인은 초반에 등장
-  rule2_noSupernatural: boolean;          // 초자연적 요소 금지
-  rule3_noSecretPassages: boolean;        // 비밀 통로 2개 이상 금지
-  rule4_noUnknownPoison: boolean;         // 미지의 독극물 금지
-  rule5_noAsianCharacter: boolean;        // (현대 해석: 스테레오타입 금지)
-  rule6_noAccident: boolean;              // 우연 해결 금지
-  rule7_detectiveNotCulprit: boolean;     // 탐정은 범인 불가
-  rule8_allCluesShown: boolean;           // 모든 단서 공개
-  rule9_sidekickLimited: boolean;         // 조수의 추리 제한
-  rule10_noTwinUnannounced: boolean;      // 사전 언급 없는 쌍둥이 금지
+  rule1_culpritEarlyAppearance: boolean;
+  rule2_noSupernatural: boolean;
+  rule3_noSecretPassages: boolean;
+  rule4_noUnknownPoison: boolean;
+  rule5_noAsianCharacter: boolean;
+  rule6_noAccident: boolean;
+  rule7_detectiveNotCulprit: boolean;
+  rule8_allCluesShown: boolean;
+  rule9_sidekickLimited: boolean;
+  rule10_noTwinUnannounced: boolean;
   isValid: boolean;
   failedRules: string[];
   score: number;
 }
 
-// 캐릭터 관계
 export interface Relationship {
   targetId: string;
   type: RelationshipType;
-  intensity: 1 | 2 | 3 | 4 | 5; // 관계 강도
+  intensity: 1 | 2 | 3 | 4 | 5;
   description: string;
-  isPublic: boolean; // 공개적인 관계인지
-  secretReason?: string; // 숨겨진 관계 이유
+  isPublic: boolean;
+  secretReason?: string;
 }
 
-// 동기 시스템
 export interface Motive {
   type: 'revenge' | 'greed' | 'jealousy' | 'fear' | 'protection' | 'ideology' | 'accident';
   description: string;
-  strength: 1 | 2 | 3; // 동기 강도
-  relatedEvidence: string[]; // 동기를 뒷받침하는 증거
+  strength: 1 | 2 | 3;
+  relatedEvidence: string[];
   isRevealed: boolean;
 }
 
-// 알리바이 시스템 (강화)
 export interface Alibi {
   location: string;
-  startTime: string; // HH:MM 형식
+  startTime: string;
   endTime: string;
   activity: string;
-  witnesses: string[]; // 증인 캐릭터 ID
-  physicalEvidence: string[]; // 알리바이 물증
+  witnesses: string[];
+  physicalEvidence: string[];
   hasHole: boolean;
   holeDetail?: string;
   holeTimeStart?: string;
@@ -68,8 +71,8 @@ export interface Character {
   occupation: string;
   personality: string;
   description: string;
-  appearance: string; // 외모 설명
-  background: string; // 배경 스토리
+  appearance: string;
+  background: string;
   alibi: Alibi;
   motive: Motive | null;
   relationships: Relationship[];
@@ -77,11 +80,11 @@ export interface Character {
   isVictim: boolean;
   isCulprit: boolean;
   isWitness: boolean;
-  suspicionLevel: number; // 0-100, 플레이어가 느끼는 의심도
+  suspicionLevel: number;
   dialogues: Record<string, DialogueOption[]>;
-  behaviorPatterns: string[]; // 행동 패턴
-  nervousTriggers: string[]; // 긴장하는 주제
-  firstAppearanceTime: string; // 처음 등장 시간
+  behaviorPatterns: string[];
+  nervousTriggers: string[];
+  firstAppearanceTime: string;
 }
 
 export interface DialogueOption {
@@ -108,7 +111,7 @@ export interface Secret {
   isRevealed: boolean;
   requiredEvidence: string[];
   requiredTrustLevel?: number;
-  connectedToCase: boolean; // 사건과 직접 관련?
+  connectedToCase: boolean;
   revealMethod: 'evidence' | 'interrogation' | 'deduction' | 'automatic';
 }
 
@@ -117,34 +120,38 @@ export interface Evidence {
   name: string;
   type: EvidenceType;
   description: string;
-  detailedDescription: string; // 자세한 설명
+  detailedDescription: string;
   location: string;
-  foundAt: string; // 발견 장소 상세
+  foundAt: string;
   linkedCharacters: string[];
-  contradicts?: string[]; // 모순되는 증거 ID
-  supports?: string[]; // 뒷받침하는 증거 ID
+  contradicts?: string[];
+  supports?: string[];
   isRedHerring: boolean;
-  redHerringReason?: string; // 왜 미끼인지
+  redHerringReason?: string;
   isCollected: boolean;
   isCritical: boolean;
-  criticalReason?: string; // 왜 결정적인지
-  discoveryDifficulty: 1 | 2 | 3; // 발견 난이도
-  analysisRequired: boolean; // 분석 필요 여부
+  criticalReason?: string;
+  discoveryDifficulty: 1 | 2 | 3;
+  analysisRequired: boolean;
   analysisResult?: string;
-  timestamp?: string; // 증거의 시간대 (타임라인 연결)
-  weight: number; // 증거 가치 (점수 계산용)
+  timestamp?: string;
+  weight: number;
+  // v3: Logic grid attributes
+  category?: string;
+  implicates?: string[];   // character IDs this evidence points to
+  exonerates?: string[];   // character IDs this evidence clears
 }
 
 export interface Location {
   id: string;
   name: string;
   description: string;
-  atmosphere: string; // 분위기 설명
+  atmosphere: string;
   objects: InteractiveObject[];
   connectedTo: string[];
-  accessRestriction?: string; // 접근 제한
+  accessRestriction?: string;
   isSearched: boolean;
-  searchProgress: number; // 0-100
+  searchProgress: number;
   hiddenAreas: HiddenArea[];
 }
 
@@ -172,7 +179,7 @@ export interface InteractiveObject {
 
 export interface TimelineEvent {
   id: string;
-  time: string; // HH:MM 형식
+  time: string;
   endTime?: string;
   description: string;
   detailedDescription: string;
@@ -186,7 +193,59 @@ export interface TimelineEvent {
   contradictionEvidence?: string[];
 }
 
-// 추론 시스템 (강화)
+// v3: Logic Grid system (Murdle-style)
+export interface LogicGridState {
+  // rows = suspects, cols = attributes (categories)
+  categories: LogicCategory[];
+  grid: Record<string, Record<string, CellState>>; // suspectId -> categoryValue -> state
+}
+
+export interface LogicCategory {
+  id: string;
+  name: string;
+  values: string[];
+  icon: string;
+}
+
+// v3: Evidence Board connections
+export interface EvidenceBoardState {
+  connections: EvidenceConnection[];
+  positions: Record<string, { x: number; y: number }>;
+  pinnedEvidence: string[];
+}
+
+export interface EvidenceConnection {
+  id: string;
+  fromId: string;
+  toId: string;
+  type: 'supports' | 'contradicts' | 'related';
+  label?: string;
+}
+
+// v3: Hypothesis system
+export interface Hypothesis {
+  id: string;
+  suspectId: string;
+  suspectName: string;
+  motive: { text: string; evidenceIds: string[]; score: number };
+  opportunity: { text: string; evidenceIds: string[]; score: number };
+  means: { text: string; evidenceIds: string[]; score: number };
+  totalScore: number;
+  isLocked: boolean;
+}
+
+// v3: Contradiction system (Ace Attorney style)
+export interface Contradiction {
+  id: string;
+  statementId: string;    // the statement/testimony
+  evidenceId: string;     // the contradicting evidence
+  characterId: string;    // who made the statement
+  description: string;
+  isFound: boolean;
+  points: number;
+}
+
+// v3: Player deductions for the new system
 export interface Deduction {
   id: string;
   type: 'who' | 'why' | 'how' | 'when' | 'where' | 'connection';
@@ -195,20 +254,19 @@ export interface Deduction {
   contradictingEvidence: string[];
   isCorrect: boolean | null;
   isConfirmed: boolean;
-  confidence: number; // 0-100
+  confidence: number;
   verificationMethod: 'evidence' | 'testimony' | 'logic' | 'timeline';
-  correctAnswer?: string; // 정답 (검증용)
-  partialCredit: number; // 부분 점수 (0-1)
-  feedback?: string; // 피드백 메시지
+  correctAnswer?: string;
+  partialCredit: number;
+  feedback?: string;
 }
 
-// 추론 검증 키워드
 export interface DeductionKeywords {
-  who: string[]; // 범인 이름 키워드
-  why: string[]; // 동기 키워드
-  how: string[]; // 방법 키워드
-  when: string[]; // 시간 키워드
-  where: string[]; // 장소 키워드
+  who: string[];
+  why: string[];
+  how: string[];
+  when: string[];
+  where: string[];
 }
 
 export interface Case {
@@ -217,11 +275,11 @@ export interface Case {
   subtitle: string;
   type: CaseType;
   difficulty: Difficulty;
-  estimatedTime: number; // 예상 플레이 시간 (분)
+  estimatedTime: number;
   summary: string;
   detailedSummary: string;
   introduction: string[];
-  prologue: string[]; // 프롤로그 (분위기 조성)
+  prologue: string[];
   characters: Character[];
   evidence: Evidence[];
   locations: Location[];
@@ -232,21 +290,34 @@ export interface Case {
   motiveDetail: string;
   method: string;
   methodDetail: string;
-  crimeTime: string; // 범행 시각
-  crimeLocation: string; // 범행 장소
-  deductionKeywords: DeductionKeywords; // 추론 검증용 키워드
+  crimeTime: string;
+  crimeLocation: string;
+  deductionKeywords: DeductionKeywords;
+  // v3: Contradiction data built into the case
+  contradictions: CaseContradiction[];
+  // v3: Logic grid categories
+  logicCategories: LogicCategory[];
   solution: {
     explanation: string;
     detailedExplanation: string[];
     keyEvidence: string[];
     timeline: string[];
-    howToSolve: string[]; // 해결 힌트
-    commonMistakes: string[]; // 흔한 실수
+    howToSolve: string[];
+    commonMistakes: string[];
   };
   knoxValidation: KnoxValidation;
-  qualityScore: number; // 케이스 품질 점수
+  qualityScore: number;
   version: string;
   createdAt: number;
+}
+
+export interface CaseContradiction {
+  id: string;
+  characterId: string;
+  statement: string;
+  contradictingEvidenceId: string;
+  explanation: string;
+  isCritical: boolean;
 }
 
 export interface GameState {
@@ -254,6 +325,7 @@ export interface GameState {
   phase: GamePhase;
   currentLocation: string | null;
   currentCharacter: string | null;
+  activeDeductionTab: DeductionTab;
   collectedEvidence: string[];
   analyzedEvidence: string[];
   examinedObjects: string[];
@@ -263,6 +335,13 @@ export interface GameState {
   deductions: Deduction[];
   confirmedFacts: string[];
   playerNotes: PlayerNote[];
+  // v3: New deduction tools state
+  logicGrid: Record<string, Record<string, CellState>>;
+  evidenceBoard: EvidenceBoardState;
+  hypotheses: Hypothesis[];
+  foundContradictions: string[];
+  contradictionCombo: number;
+  // Scoring
   hintsUsed: number;
   hintsRemaining: number;
   score: number;
@@ -289,9 +368,12 @@ export interface AccusationResult {
   actualCulpritId: string;
   evidenceScore: number;
   deductionScore: number;
+  contradictionScore: number;
+  logicGridScore: number;
   timeBonus: number;
   totalScore: number;
   rank: 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
+  stars: 0 | 1 | 2 | 3;
   feedback: string[];
   missedClues: string[];
   correctDeductions: number;
@@ -307,30 +389,13 @@ export interface GameStatistics {
   totalLocations: number;
   deductionsMade: number;
   correctDeductions: number;
+  contradictionsFound: number;
+  totalContradictions: number;
+  logicGridProgress: number;
   hintsUsed: number;
   timeSpent: number;
 }
 
-export interface DialogueState {
-  characterId: string;
-  trustLevel: number; // 0-100
-  currentTopic: string | null;
-  messages: DialogueMessage[];
-  availableTopics: string[];
-  unlockedTopics: string[];
-}
-
-export interface DialogueMessage {
-  id: string;
-  speaker: 'player' | 'character';
-  text: string;
-  isImportant: boolean;
-  revealsEvidence?: string;
-  revealsSecret?: string;
-  timestamp: number;
-}
-
-// 난이도 설정 타입
 export interface DifficultySettings {
   suspectCount: { min: number; max: number };
   evidenceCount: { min: number; max: number };
@@ -344,7 +409,6 @@ export interface DifficultySettings {
   alibiHoleVisibility: 'obvious' | 'subtle' | 'hidden';
 }
 
-// 케이스 검증 결과
 export interface CaseValidationResult {
   isValid: boolean;
   errors: ValidationError[];
@@ -365,4 +429,23 @@ export interface ValidationWarning {
   code: string;
   message: string;
   suggestion: string;
+}
+
+export interface DialogueState {
+  characterId: string;
+  trustLevel: number;
+  currentTopic: string | null;
+  messages: DialogueMessage[];
+  availableTopics: string[];
+  unlockedTopics: string[];
+}
+
+export interface DialogueMessage {
+  id: string;
+  speaker: 'player' | 'character';
+  text: string;
+  isImportant: boolean;
+  revealsEvidence?: string;
+  revealsSecret?: string;
+  timestamp: number;
 }

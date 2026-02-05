@@ -171,6 +171,8 @@ export class CaseGenerator {
       crimeTime,
       crimeLocation,
       deductionKeywords,
+      contradictions: this.generateContradictions(characters, evidence, culprit.id),
+      logicCategories: this.generateLogicCategories(characters),
       solution: {
         explanation: this.generateSolutionExplanation(culprit, motive, targetItem),
         detailedExplanation: this.generateDetailedSolutionExplanation(culprit, motive, evidence, timeline),
@@ -973,6 +975,67 @@ export class CaseGenerator {
     return timeMap[this.difficulty];
   }
 
+  private generateContradictions(
+    characters: Character[],
+    evidence: Evidence[],
+    culpritId: string
+  ): import('../types').CaseContradiction[] {
+    const contradictions: import('../types').CaseContradiction[] = [];
+    const culprit = characters.find(c => c.id === culpritId);
+    if (!culprit) return contradictions;
+
+    const criticalEvidence = evidence.filter(e => e.isCritical && !e.isRedHerring);
+
+    // 범인의 알리바이 모순
+    if (criticalEvidence.length > 0) {
+      contradictions.push({
+        id: generateId(),
+        characterId: culpritId,
+        statement: `${culprit.name}: "${culprit.alibi.startTime}부터 ${culprit.alibi.endTime}까지 ${culprit.alibi.location}에 있었습니다."`,
+        contradictingEvidenceId: criticalEvidence[0].id,
+        explanation: culprit.alibi.holeDetail || '알리바이에 빈틈이 있다',
+        isCritical: true
+      });
+    }
+
+    if (criticalEvidence.length > 1) {
+      contradictions.push({
+        id: generateId(),
+        characterId: culpritId,
+        statement: `${culprit.name}: "저는 사건과 아무 관련이 없어요."`,
+        contradictingEvidenceId: criticalEvidence[1].id,
+        explanation: '증거가 범인의 관여를 증명한다',
+        isCritical: true
+      });
+    }
+
+    return contradictions;
+  }
+
+  private generateLogicCategories(characters: Character[]): import('../types').LogicCategory[] {
+    const suspects = characters.filter(c => !c.isVictim);
+    return [
+      {
+        id: 'location',
+        name: '장소',
+        values: ['교실', '복도', '도서관', '운동장', '급식실'],
+        icon: 'map-pin'
+      },
+      {
+        id: 'time',
+        name: '시간대',
+        values: ['1교시', '2교시', '점심', '3교시', '방과후'],
+        icon: 'clock'
+      },
+      {
+        id: 'motive',
+        name: '동기',
+        values: suspects.map(s => s.motive?.type || 'unknown'),
+        icon: 'brain'
+      }
+    ];
+  }
+
   // Knox 10계명 검증
   private validateKnoxRules(caseData: Partial<Case>): KnoxValidation {
     const culprit = caseData.characters?.find(c => c.id === caseData.culpritId);
@@ -1139,6 +1202,8 @@ export class CaseGenerator {
         when: ['12시'],
         where: ['교실']
       },
+      contradictions: [],
+      logicCategories: [],
       solution: {
         explanation: '용의자 A가 범인입니다.',
         detailedExplanation: ['범인은 용의자 A입니다.'],

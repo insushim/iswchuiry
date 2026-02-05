@@ -60,6 +60,12 @@ const initialState: GameState = {
   isComplete: false,
   accusationResult: null,
   achievements: [],
+  activeDeductionTab: 'evidence-board',
+  logicGrid: {},
+  evidenceBoard: { connections: [], positions: {}, pinnedEvidence: [] },
+  hypotheses: [],
+  foundContradictions: [],
+  contradictionCombo: 0,
   statistics: {
     evidenceFound: 0,
     totalEvidence: 0,
@@ -69,6 +75,9 @@ const initialState: GameState = {
     totalLocations: 0,
     deductionsMade: 0,
     correctDeductions: 0,
+    contradictionsFound: 0,
+    totalContradictions: 0,
+    logicGridProgress: 0,
     hintsUsed: 0,
     timeSpent: 0
   }
@@ -466,9 +475,12 @@ export const useGameStore = create<GameStore>()(
           actualCulpritId: currentCase.culpritId,
           evidenceScore,
           deductionScore,
+          contradictionScore: 0,
+          logicGridScore: 0,
           timeBonus,
           totalScore: Math.floor(score),
           rank,
+          stars: (score >= 1200 ? 3 : score >= 600 ? 2 : score >= 200 ? 1 : 0) as 0 | 1 | 2 | 3,
           feedback: isCorrect
             ? ['정확한 추리였습니다! 모든 증거가 범인을 가리키고 있었습니다.']
             : ['안타깝게도 틀렸습니다. 증거를 다시 살펴보세요.'],
