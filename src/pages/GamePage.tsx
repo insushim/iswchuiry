@@ -8,6 +8,7 @@ import { InterrogationPhase } from '../components/phases/InterrogationPhase';
 import { DeductionPhase } from '../components/phases/DeductionPhase';
 import { AccusationPhase } from '../components/phases/AccusationPhase';
 import { RevealPhase } from '../components/phases/RevealPhase';
+import { PuzzleChainPhase } from '../components/phases/PuzzleChainPhase';
 
 export function GamePage() {
   const navigate = useNavigate();
@@ -32,6 +33,8 @@ export function GamePage() {
     switch (phase) {
       case 'intro':
         return <IntroPhase />;
+      case 'puzzle-chain':
+        return <PuzzleChainPhase />;
       case 'investigation':
         return <InvestigationPhase />;
       case 'interrogation':
@@ -48,7 +51,7 @@ export function GamePage() {
   };
 
   return (
-    <Layout showHeader={phase !== 'intro' && phase !== 'reveal'}>
+    <Layout showHeader={phase !== 'intro' && phase !== 'reveal' && phase !== 'puzzle-chain'}>
       {renderPhase()}
     </Layout>
   );

@@ -4,7 +4,7 @@
 
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
 export type CaseType = 'theft' | 'vandalism' | 'mystery' | 'disappearance' | 'fraud' | 'blackmail';
-export type GamePhase = 'intro' | 'investigation' | 'interrogation' | 'deduction' | 'accusation' | 'reveal';
+export type GamePhase = 'intro' | 'investigation' | 'interrogation' | 'deduction' | 'accusation' | 'reveal' | 'puzzle-chain';
 export type EvidenceType = 'physical' | 'testimony' | 'document' | 'digital' | 'forensic';
 export type RelationshipType = 'friend' | 'rival' | 'family' | 'lover' | 'colleague' | 'enemy' | 'stranger';
 
@@ -309,6 +309,8 @@ export interface Case {
   qualityScore: number;
   version: string;
   createdAt: number;
+  // v5: Puzzle chain
+  puzzleChain?: import('./puzzles').PuzzleConfig[];
 }
 
 export interface CaseContradiction {
@@ -341,6 +343,9 @@ export interface GameState {
   hypotheses: Hypothesis[];
   foundContradictions: string[];
   contradictionCombo: number;
+  // v5: Puzzle chain state
+  puzzleProgress: import('./puzzles').PuzzleProgress[];
+  currentPuzzleIndex: number;
   // Scoring
   hintsUsed: number;
   hintsRemaining: number;

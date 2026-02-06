@@ -74,7 +74,7 @@ export function IntroPhase() {
       setShowButton(false);
       return;
     }
-    setPhase('investigation');
+    setPhase('puzzle-chain');
   };
 
   return (

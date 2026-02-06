@@ -2,8 +2,10 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { GameState, Deduction, GamePhase } from '../types';
 import { CaseGenerator } from '../core/CaseGenerator';
+import { generatePuzzleChain } from '../core/PuzzleGenerator';
 import { generateId } from '../utils/helpers';
 import { DIFFICULTY_SETTINGS, DEDUCTION_SYNONYMS } from '../data/gameData';
+import { PuzzleProgress } from '../types/puzzles';
 
 interface GameStore extends GameState {
   // 게임 라이프사이클
@@ -32,6 +34,11 @@ interface GameStore extends GameState {
 
   // 힌트
   useHint: () => string | null;
+
+  // 퍼즐 체인
+  initPuzzleChain: () => void;
+  solvePuzzle: (puzzleId: string, score: number) => void;
+  advancePuzzle: () => void;
 
   // 유틸
   updatePlayTime: () => void;
@@ -66,6 +73,8 @@ const initialState: GameState = {
   hypotheses: [],
   foundContradictions: [],
   contradictionCombo: 0,
+  puzzleProgress: [],
+  currentPuzzleIndex: 0,
   statistics: {
     evidenceFound: 0,
     totalEvidence: 0,
@@ -92,6 +101,10 @@ export const useGameStore = create<GameStore>()(
       const newCase = generator.generate();
       const settings = DIFFICULTY_SETTINGS[difficulty];
 
+      // 퍼즐 체인 생성
+      const puzzleChain = generatePuzzleChain(newCase, difficulty);
+      newCase.puzzleChain = puzzleChain;
+
       set((state) => {
         Object.assign(state, initialState);
         state.currentCase = newCase;
@@ -99,6 +112,19 @@ export const useGameStore = create<GameStore>()(
         state.hintsRemaining = settings.hintCount;
         state.startTime = Date.now();
         state.currentLocation = newCase.locations[0]?.id || null;
+        state.puzzleProgress = puzzleChain.map(p => ({
+          puzzleId: p.id,
+          isCompleted: false,
+          isUnlocked: false,
+          attempts: 0,
+          hintsUsed: 0,
+          score: 0
+        }));
+        // 첫 퍼즐 언락
+        if (state.puzzleProgress.length > 0) {
+          state.puzzleProgress[0].isUnlocked = true;
+        }
+        state.currentPuzzleIndex = 0;
       });
     },
 
@@ -526,6 +552,54 @@ export const useGameStore = create<GameStore>()(
       }
 
       return `수집한 증거들을 연결해서 생각해보세요. 누가 동기와 기회를 가졌나요?`;
+    },
+
+    initPuzzleChain: () => {
+      set((state) => {
+        state.phase = 'puzzle-chain';
+        state.currentPuzzleIndex = 0;
+      });
+    },
+
+    solvePuzzle: (puzzleId, score) => {
+      set((state) => {
+        const progress = state.puzzleProgress.find(p => p.puzzleId === puzzleId);
+        if (progress) {
+          progress.isCompleted = true;
+          progress.score = score;
+          progress.completedAt = Date.now();
+          state.score += score;
+        }
+
+        // 퍼즐 보상: 증거 자동 수집
+        const puzzleConfig = state.currentCase?.puzzleChain?.find(p => p.id === puzzleId);
+        if (puzzleConfig && puzzleConfig.rewardIds) {
+          for (const rewardId of puzzleConfig.rewardIds) {
+            if (!state.collectedEvidence.includes(rewardId)) {
+              state.collectedEvidence.push(rewardId);
+            }
+          }
+        }
+      });
+    },
+
+    advancePuzzle: () => {
+      set((state) => {
+        const nextIndex = state.currentPuzzleIndex + 1;
+        const totalPuzzles = state.puzzleProgress.length;
+
+        if (nextIndex >= totalPuzzles) {
+          // 모든 퍼즐 완료 → 고발 단계로
+          state.phase = 'accusation';
+        } else {
+          state.currentPuzzleIndex = nextIndex;
+          // 다음 퍼즐 언락
+          if (state.puzzleProgress[nextIndex]) {
+            state.puzzleProgress[nextIndex].isUnlocked = true;
+            state.puzzleProgress[nextIndex].startedAt = Date.now();
+          }
+        }
+      });
     },
 
     updatePlayTime: () => {
