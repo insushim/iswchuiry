@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
+import { useMetaStore } from '../../store/metaStore';
 import {
   Trophy, Star, Clock, Search, Brain,
   Home, RotateCcw, User, AlertCircle, Sparkles,
-  ChevronRight, X, Award, Target
+  ChevronRight, X, Award, Target, Share2, Check
 } from 'lucide-react';
 import { formatTime, formatScore } from '../../utils/helpers';
 
@@ -25,8 +26,11 @@ export function RevealPhase() {
     hintsUsed, collectedEvidence, confirmedFacts,
     statistics, resetGame
   } = useGameStore();
+  const { recordGameResult } = useMetaStore();
 
   const [revealStep, setRevealStep] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [recorded, setRecorded] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -34,6 +38,22 @@ export function RevealPhase() {
     }, 700);
     return () => clearInterval(timer);
   }, []);
+
+  // Record game result to metaStore once
+  useEffect(() => {
+    if (!recorded && currentCase && accusationResult) {
+      recordGameResult({
+        score: accusationResult.totalScore || score,
+        rank: accusationResult.rank || 'F',
+        difficulty: currentCase.difficulty as 'easy' | 'medium' | 'hard' | 'expert',
+        won: accusationResult.isCorrect,
+        timeSeconds: playTime,
+        caseTitle: currentCase.title,
+        mode: 'classic',
+      });
+      setRecorded(true);
+    }
+  }, [recorded, currentCase, accusationResult, recordGameResult, score, playTime]);
 
   if (!currentCase || !accusationResult) return null;
 
@@ -46,6 +66,28 @@ export function RevealPhase() {
 
   const handleNewGame = () => { resetGame(); navigate('/new-game'); };
   const handleHome = () => { resetGame(); navigate('/'); };
+
+  const handleShare = () => {
+    const stars = accusationResult.stars || 0;
+    const starStr = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+    const evidenceRate = currentCase.evidence.length > 0
+      ? `${collectedEvidence.length}/${currentCase.evidence.length}`
+      : '-';
+    const text = [
+      `🔍 DEDUCTIO - ${currentCase.title}`,
+      `랭크: ${rank} | ${starStr}`,
+      `점수: ${formatScore(accusationResult.totalScore || score)}`,
+      `시간: ${formatTime(playTime)}`,
+      `증거: ${evidenceRate}`,
+      ``,
+      `https://deductio.game`
+    ].join('\n');
+
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   const stats = [
     { icon: Clock, label: '플레이 시간', value: formatTime(playTime), color: 'text-blue-400' },
@@ -205,7 +247,6 @@ export function RevealPhase() {
                        currentCase.difficulty === 'hard' ? '어려움' : '전문가'}
                     </p>
 
-                    {/* Stars */}
                     {accusationResult.stars !== undefined && accusationResult.stars > 0 && (
                       <div className="flex items-center justify-end gap-1 mt-2">
                         {[1, 2, 3].map(i => (
@@ -332,35 +373,62 @@ export function RevealPhase() {
             )}
           </AnimatePresence>
 
-          {/* Buttons */}
+          {/* Share + Buttons */}
           <AnimatePresence>
             {revealStep >= 6 && (
               <motion.div
-                className="flex gap-4 pb-8"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
               >
+                {/* Share Card */}
                 <motion.button
-                  onClick={handleHome}
-                  className="flex-1 btn-secondary py-3.5 flex items-center justify-center gap-2"
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
+                  onClick={handleShare}
+                  className="w-full mb-4 p-4 glass rounded-xl flex items-center justify-center gap-2 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-all"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  <Home size={18} />
-                  홈으로
+                  {copied ? (
+                    <><Check size={16} className="text-green-400" /> <span className="text-green-400">클립보드에 복사됨!</span></>
+                  ) : (
+                    <><Share2 size={16} /> 결과 공유하기</>
+                  )}
                 </motion.button>
-                <motion.button
-                  onClick={handleNewGame}
-                  className="flex-1 btn-accent py-3.5 flex items-center justify-center gap-2"
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  animate={{ boxShadow: ['0 0 10px rgba(251,191,36,0.2)', '0 0 25px rgba(251,191,36,0.4)', '0 0 10px rgba(251,191,36,0.2)'] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <RotateCcw size={18} />
-                  새 사건
-                  <ChevronRight size={16} />
-                </motion.button>
+
+                {/* Record notification */}
+                {recorded && (
+                  <motion.p
+                    className="text-center text-xs text-slate-500 mb-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    게임 결과가 통계에 기록되었습니다
+                  </motion.p>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-4 pb-8">
+                  <motion.button
+                    onClick={handleHome}
+                    className="flex-1 btn-secondary py-3.5 flex items-center justify-center gap-2"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                  >
+                    <Home size={18} />
+                    홈으로
+                  </motion.button>
+                  <motion.button
+                    onClick={handleNewGame}
+                    className="flex-1 btn-accent py-3.5 flex items-center justify-center gap-2"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    animate={{ boxShadow: ['0 0 10px rgba(251,191,36,0.2)', '0 0 25px rgba(251,191,36,0.4)', '0 0 10px rgba(251,191,36,0.2)'] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    <RotateCcw size={18} />
+                    새 사건
+                    <ChevronRight size={16} />
+                  </motion.button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
