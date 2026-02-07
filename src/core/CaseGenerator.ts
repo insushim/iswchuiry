@@ -118,6 +118,9 @@ export class CaseGenerator {
     // 범인 선정 (Knox Rule #1: 초반 등장 캐릭터 중 선택)
     const culprit = this.selectCulprit(characters);
 
+    // 범인의 핵심 신체 프로필 고유성 보장
+    this.ensureCulpritPhysicalUniqueness(culprit, characters);
+
     // 동기 부여 (상세화)
     const motive = this.generateMotive(culprit, characters);
     culprit.motive = motive;
@@ -220,12 +223,85 @@ export class CaseGenerator {
     return culprit;
   }
 
+  /**
+   * 범인의 핵심 신체 특성(신발 크기, 체격, 손잡이, 키) 조합이
+   * 증거에서 참조될 때 다른 용의자와 겹치지 않도록 보장.
+   * 충돌하는 무고한 용의자의 특성을 재배정한다.
+   */
+  private ensureCulpritPhysicalUniqueness(culprit: Character, characters: Character[]): void {
+    const culpritProfile = culprit.physicalProfile;
+    const keyTraits = ['shoeSize', 'build', 'handedness', 'height'] as const;
+
+    for (const other of characters) {
+      if (other.id === culprit.id || other.isVictim) continue;
+
+      // 핵심 4가지 특성이 모두 동일한 경우 충돌
+      const allMatch = keyTraits.every(
+        trait => other.physicalProfile[trait] === culpritProfile[trait]
+      );
+
+      if (allMatch) {
+        // 충돌하는 무고한 용의자의 특성 하나를 재배정
+        const traitToReroll = this.rng.choice([...keyTraits]);
+        switch (traitToReroll) {
+          case 'shoeSize': {
+            const isAdult = other.occupation === '교사' || other.occupation === '상담교사' || other.occupation === '관리인';
+            const sizes = other.gender === 'male'
+              ? (isAdult ? SHOE_SIZES.male.adult : SHOE_SIZES.male.teen)
+              : (isAdult ? SHOE_SIZES.female.adult : SHOE_SIZES.female.teen);
+            const alternatives = sizes.filter(s => s !== culpritProfile.shoeSize);
+            if (alternatives.length > 0) {
+              other.physicalProfile.shoeSize = this.rng.choice(alternatives);
+            }
+            break;
+          }
+          case 'build': {
+            const alternatives = [...PHYSICAL_BUILDS].filter(b => b !== culpritProfile.build);
+            if (alternatives.length > 0) {
+              other.physicalProfile.build = this.rng.choice(alternatives);
+            }
+            break;
+          }
+          case 'handedness': {
+            other.physicalProfile.handedness = culpritProfile.handedness === '왼손잡이' ? '오른손잡이' : '왼손잡이';
+            break;
+          }
+          case 'height': {
+            const alternatives = [...PHYSICAL_HEIGHTS].filter(h => h !== culpritProfile.height);
+            if (alternatives.length > 0) {
+              other.physicalProfile.height = this.rng.choice(alternatives);
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  private inferMotiveType(description: string): Motive['type'] {
+    const keywords: Array<{ type: Motive['type']; patterns: string[] }> = [
+      { type: 'revenge', patterns: ['복수', '앙갚음', '보복', '되갚', '원한', '분노', '상처'] },
+      { type: 'greed', patterns: ['돈', '이익', '성적', '점수', '탐욕', '얻기', '빼앗', '경제', '급하게', '빚', '욕망', '성공', '이기고', '인정', '장학금', '예산'] },
+      { type: 'jealousy', patterns: ['질투', '시기', '부러', '선망', '관심', '부추김'] },
+      { type: 'fear', patterns: ['숨기', '은폐', '들킬까', '비밀', '두려', '감추', '덮기', '불안', '오해'] },
+      { type: 'protection', patterns: ['보호', '지키', '위해', '감싸', '가족', '어쩔 수 없'] },
+    ];
+
+    for (const { type, patterns } of keywords) {
+      if (patterns.some(p => description.includes(p))) {
+        return type;
+      }
+    }
+
+    // 기본 폴백: description에서 추론 불가 시 greed
+    return 'greed';
+  }
+
   private generateMotive(culprit: Character, allCharacters: Character[]): Motive {
     const motiveTemplates = MOTIVES[this.caseType];
     const motiveDescription = this.rng.choice(motiveTemplates);
 
-    const motiveTypes: Motive['type'][] = ['revenge', 'greed', 'jealousy', 'fear', 'protection'];
-    const motiveType = this.rng.choice(motiveTypes);
+    const motiveType = this.inferMotiveType(motiveDescription);
 
     return {
       type: motiveType,
@@ -325,6 +401,24 @@ export class CaseGenerator {
     const crimeHour = parseInt(crimeTime.split(':')[0]);
     const crimeMinute = parseInt(crimeTime.split(':')[1]);
 
+    // 난이도별 물증 없는 무고한 용의자 수 결정
+    const innocentsWithoutEvidenceCount: Record<Difficulty, { min: number; max: number }> = {
+      easy: { min: 0, max: 1 },
+      medium: { min: 1, max: 1 },
+      hard: { min: 1, max: 2 },
+      expert: { min: 2, max: 2 }
+    };
+    const range = innocentsWithoutEvidenceCount[this.difficulty];
+    const noEvidenceCount = this.rng.nextInt(range.min, range.max);
+
+    // 물증이 없을 무고한 용의자를 미리 선택
+    const innocentIds = characters
+      .filter(c => c.id !== culpritId && !c.isVictim)
+      .map(c => c.id);
+    const innocentsWithoutEvidence = new Set(
+      this.rng.sample(innocentIds, Math.min(noEvidenceCount, innocentIds.length))
+    );
+
     for (const char of characters) {
       if (char.isVictim) continue;
 
@@ -340,13 +434,15 @@ export class CaseGenerator {
         .slice(0, 2)
         .map(c => c.id);
 
+      const hasPhysicalEvidence = !isCulprit && !innocentsWithoutEvidence.has(char.id);
+
       char.alibi = {
         location: alibiTemplate.location,
         startTime: `${String(alibiStartHour).padStart(2, '0')}:00`,
         endTime: `${String(alibiEndHour).padStart(2, '0')}:00`,
         activity: alibiTemplate.activity,
         witnesses,
-        physicalEvidence: isCulprit ? [] : [this.rng.choice(['CCTV 영상', '출석부', '도서 대출 기록', '휴대폰 GPS'])],
+        physicalEvidence: hasPhysicalEvidence ? [this.rng.choice(['CCTV 영상', '출석부', '도서 대출 기록', '휴대폰 GPS'])] : [],
         hasHole: isCulprit,
         canBeVerified: !isCulprit,
         verificationMethod: isCulprit ? undefined : '증인 진술 및 물증 확인'
@@ -610,12 +706,19 @@ export class CaseGenerator {
       ? this.rng.choice(innocentCharacters)
       : null;
 
+    // 레드헤링을 실제 증거처럼 보이게 만듦 (연결된 무고한 캐릭터 기반)
+    const charName = linkedChar?.name || '누군가';
+    const charOccupation = linkedChar?.occupation || '학생';
     const redHerringTemplates = [
-      { name: '의문의 메모', desc: '누군가 급하게 적은 듯한 메모. 하지만 사건과 직접적인 관련은 없어 보인다.' },
-      { name: '수상한 물건', desc: '눈에 띄는 물건이지만, 자세히 보면 사건과 무관한 것 같다.' },
-      { name: '모호한 증언', desc: '확실하지 않은 증언. 기억이 불확실해 보인다.' },
+      { name: '현장 부근 메모', desc: `${charName}의 필체로 보이는 메모가 발견되었다. "오늘 안에 끝내야 한다"라고 적혀있으며, 사건 시각과 겹치는 시간이 언급되어 있다.` },
+      { name: '목격자 증언', desc: `${charName}이(가) 사건 직전에 현장 부근에서 초조한 모습으로 서성거리는 것을 봤다는 증언이 있다.` },
+      { name: '유류품 분석', desc: `현장에서 ${charOccupation}이(가) 사용하는 것과 동일한 종류의 물건이 발견되었다. 지문 채취가 가능해 보인다.` },
+      { name: '통화 기록', desc: `${charName}의 통화 기록에 사건 당일 비정상적으로 짧은 통화가 여러 건 기록되어 있다.` },
+      { name: '행동 패턴 분석', desc: `${charName}은(는) 사건 이후 평소와 다른 경로로 이동했다. 현장을 피하려는 의도로 보인다.` },
+      { name: '소지품 검사', desc: `${charName}의 가방에서 사건과 관련될 수 있는 도구가 발견되었다. 하지만 ${charOccupation}이(가) 일반적으로 사용하는 물건이기도 하다.` },
+      { name: '디지털 흔적', desc: `${charName}의 검색 기록에 사건과 관련된 키워드가 포함되어 있다.` },
     ];
-    const template = redHerringTemplates[index % redHerringTemplates.length];
+    const template = this.rng.choice(redHerringTemplates);
 
     return {
       id: generateId(),
@@ -624,13 +727,13 @@ export class CaseGenerator {
       description: template.desc,
       detailedDescription: template.desc,
       location: this.rng.choice(locations).name,
-      foundAt: this.rng.choice(['구석', '숨겨진 곳', '눈에 잘 띄지 않는 곳']),
+      foundAt: this.rng.choice(['복도', '책상 근처', '사물함 옆', '계단 아래']),
       linkedCharacters: linkedChar ? [linkedChar.id] : [],
       isRedHerring: true,
-      redHerringReason: '사건과 직접적인 관련이 없는 정보',
+      redHerringReason: `${charName}의 행동은 사건과 무관한 개인적 사정에 의한 것이다`,
       isCollected: false,
       isCritical: false,
-      discoveryDifficulty: 1,
+      discoveryDifficulty: 2,
       analysisRequired: false,
       weight: 0
     };

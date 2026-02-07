@@ -33,6 +33,11 @@ export function InvestigationPhase() {
   const location = currentCase.locations.find(l => l.id === currentLocation);
   const evidenceDetails = currentCase.evidence.filter(e => collectedEvidence.includes(e.id));
 
+  // Progressive reveal: only show "중요" tag after collecting >60% of meaningful evidence
+  const totalMeaningfulEvidence = currentCase.evidence.filter(e => !e.isRedHerring).length;
+  const collectionRate = totalMeaningfulEvidence > 0 ? collectedEvidence.length / totalMeaningfulEvidence : 0;
+  const showCriticalTag = collectionRate > 0.6;
+
   const handleExamine = (objectId: string) => {
     const result = examineObject(objectId);
     setExamineResult(result);
@@ -157,7 +162,11 @@ export function InvestigationPhase() {
                     <h4 className="font-medium text-white text-sm truncate">{ev.name}</h4>
                     <p className="text-xs text-slate-400 truncate">{ev.description}</p>
                   </div>
-                  {ev.isCritical && <span className="text-xs text-red-400 font-medium">중요</span>}
+                  {ev.isCritical && (
+                    showCriticalTag
+                      ? <span className="text-xs text-red-400 font-medium">중요</span>
+                      : <span className="text-xs text-slate-500" title="이 증거를 잘 살펴보세요">?</span>
+                  )}
                 </motion.div>
               );
             })}
@@ -355,7 +364,11 @@ export function InvestigationPhase() {
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <h4 className="font-semibold text-white">{ev.name}</h4>
-                                {ev.isCritical && <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded">중요</span>}
+                                {ev.isCritical && (
+                                  showCriticalTag
+                                    ? <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded">중요</span>
+                                    : <span className="px-2 py-0.5 bg-slate-600/30 text-slate-500 text-xs rounded" title="이 증거를 잘 살펴보세요">?</span>
+                                )}
                               </div>
                               <p className="text-sm text-slate-300">{ev.description}</p>
                               {ev.detailedDescription && (

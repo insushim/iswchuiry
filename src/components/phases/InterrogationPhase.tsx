@@ -27,6 +27,11 @@ export function InterrogationPhase() {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const dialogueEndRef = useRef<HTMLDivElement>(null);
 
+  // Progressive reveal: only show "중요" tag after collecting >60% of meaningful evidence
+  const totalMeaningfulEvidence = currentCase ? currentCase.evidence.filter(e => !e.isRedHerring).length : 0;
+  const collectionRate = totalMeaningfulEvidence > 0 ? collectedEvidence.length / totalMeaningfulEvidence : 0;
+  const showCriticalTag = collectionRate > 0.6;
+
   useEffect(() => {
     dialogueEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [dialogues]);
@@ -447,7 +452,9 @@ export function InterrogationPhase() {
                         <h4 className="font-medium text-white text-sm mb-1">{evidence.name}</h4>
                         <p className="text-xs text-slate-400 line-clamp-2">{evidence.description}</p>
                         {evidence.isCritical && (
-                          <span className="text-xs text-red-400 mt-1 inline-block">중요 증거</span>
+                          showCriticalTag
+                            ? <span className="text-xs text-red-400 mt-1 inline-block">중요 증거</span>
+                            : <span className="text-xs text-slate-500 mt-1 inline-block" title="이 증거를 잘 살펴보세요">?</span>
                         )}
                       </motion.button>
                     );
