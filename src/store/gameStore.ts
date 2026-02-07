@@ -569,7 +569,7 @@ export const useGameStore = create<GameStore>()(
         else if (elapsedMinutes < SCORE.TIME_MEDIUM_THRESHOLD) score += SCORE.TIME_MEDIUM_BONUS;
 
         // 증거 수집률 보너스
-        const collectionRate = collectedEvidence.length / currentCase.evidence.length;
+        const collectionRate = collectedEvidence.length / Math.max(currentCase.evidence.length, 1);
         if (collectionRate > SCORE.EVIDENCE_RATE_THRESHOLD) score += SCORE.EVIDENCE_RATE_BONUS;
       }
 
@@ -584,7 +584,7 @@ export const useGameStore = create<GameStore>()(
 
       const elapsedMinutes = (Date.now() - startTime) / 60000;
       const timeBonus = elapsedMinutes < 10 ? 200 : elapsedMinutes < 20 ? 100 : 0;
-      const evidenceScore = Math.floor((collectedEvidence.length / currentCase.evidence.length) * 300);
+      const evidenceScore = Math.floor((collectedEvidence.length / Math.max(currentCase.evidence.length, 1)) * 300);
       const deductionScore = deductionStats.correct * 40;
 
       const rank = score >= SCORE.RANK_S ? 'S' : score >= SCORE.RANK_A ? 'A' : score >= SCORE.RANK_B ? 'B' : score >= SCORE.RANK_C ? 'C' : score >= SCORE.RANK_D ? 'D' : 'F';

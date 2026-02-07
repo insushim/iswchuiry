@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
 import { useMetaStore } from '../../store/metaStore';
@@ -21,12 +21,19 @@ const RANK_CONFIG: Record<string, { color: string; bg: string; text: string; ico
 
 export function RevealPhase() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {
     currentCase, accusationResult, score, playTime,
     hintsUsed, collectedEvidence, confirmedFacts,
     statistics, resetGame
   } = useGameStore();
-  const { recordGameResult } = useMetaStore();
+  const { recordGameResult, completeDailyChallenge, unlockAchievement } = useMetaStore();
+
+  // 게임 모드 감지 (URL 파라미터 기반)
+  const gameMode = searchParams.get('dailyMode') === 'true' ? 'daily'
+    : searchParams.get('timeLimit') ? 'timeattack'
+    : searchParams.get('brainMode') === 'true' ? 'brain'
+    : 'classic';
 
   const [revealStep, setRevealStep] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -39,21 +46,69 @@ export function RevealPhase() {
     return () => clearInterval(timer);
   }, []);
 
-  // Record game result to metaStore once
+  // Record game result + daily challenge + achievements once
   useEffect(() => {
     if (!recorded && currentCase && accusationResult) {
+      const totalScore = accusationResult.totalScore || score;
+      const rank = accusationResult.rank || 'F';
+      const isCorrect = accusationResult.isCorrect;
+
       recordGameResult({
-        score: accusationResult.totalScore || score,
-        rank: accusationResult.rank || 'F',
+        score: totalScore,
+        rank,
         difficulty: currentCase.difficulty as 'easy' | 'medium' | 'hard' | 'expert',
-        won: accusationResult.isCorrect,
+        won: isCorrect,
         timeSeconds: playTime,
         caseTitle: currentCase.title,
-        mode: 'classic',
+        mode: gameMode,
       });
+
+      // 일일 도전 완료 기록
+      if (gameMode === 'daily') {
+        completeDailyChallenge({ rank, score: totalScore, time: playTime, correct: isCorrect });
+      }
+
+      // 업적 해금 체크
+      const now = Date.now();
+      if (isCorrect) {
+        unlockAchievement({ id: 'first_case_solved', name: '첫 사건 해결', description: '첫 번째 사건을 성공적으로 해결했습니다.', icon: '🔍', unlockedAt: now });
+      }
+      if (rank === 'S') {
+        unlockAchievement({ id: 's_rank_1', name: '명탐정의 자질', description: 'S 랭크를 1회 달성했습니다.', icon: '⭐', unlockedAt: now });
+      }
+      if (hintsUsed === 0 && isCorrect) {
+        unlockAchievement({ id: 'no_hint_clear', name: '직감의 탐정', description: '힌트를 한 번도 사용하지 않고 사건을 해결했습니다.', icon: '🎯', unlockedAt: now });
+      }
+      if (currentCase.evidence.length > 0 && collectedEvidence.length === currentCase.evidence.length) {
+        unlockAchievement({ id: 'all_evidence_collected', name: '증거 수집가', description: '한 사건에서 모든 증거를 수집했습니다.', icon: '📦', unlockedAt: now });
+      }
+      if (hintsUsed === 0 && collectedEvidence.length === currentCase.evidence.length && rank === 'S') {
+        unlockAchievement({ id: 'flawless_victory', name: '완벽한 승리', description: '힌트 0, 모든 증거 수집, S 랭크를 동시에 달성했습니다.', icon: '👑', unlockedAt: now });
+      }
+      if (playTime <= 600 && isCorrect) {
+        unlockAchievement({ id: 'speed_10min', name: '번개 추리', description: '10분 이내에 사건을 해결했습니다.', icon: '⚡', unlockedAt: now });
+      }
+      if (playTime <= 300 && isCorrect) {
+        unlockAchievement({ id: 'speed_5min', name: '직감의 번개', description: '5분 이내에 사건을 해결했습니다.', icon: '⚡', unlockedAt: now });
+      }
+      if (playTime <= 180 && isCorrect) {
+        unlockAchievement({ id: 'speed_3min', name: '순간 포착', description: '3분 이내에 사건을 해결했습니다.', icon: '💨', unlockedAt: now });
+      }
+      if (gameMode === 'daily') {
+        unlockAchievement({ id: 'daily_first', name: '오늘의 사건', description: '첫 번째 일일 도전을 완료했습니다.', icon: '📅', unlockedAt: now });
+      }
+      const hour = new Date().getHours();
+      if (hour >= 0 && hour < 5) {
+        unlockAchievement({ id: 'night_owl', name: '야행성 탐정', description: '자정(00:00~05:00)에 사건을 해결했습니다.', icon: '🦉', unlockedAt: now });
+      }
+      if (hour >= 5 && hour < 7) {
+        unlockAchievement({ id: 'early_bird', name: '새벽 탐정', description: '이른 아침(05:00~07:00)에 사건을 해결했습니다.', icon: '🌅', unlockedAt: now });
+      }
+
       setRecorded(true);
     }
-  }, [recorded, currentCase, accusationResult, recordGameResult, score, playTime]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recorded, currentCase, accusationResult]);
 
   if (!currentCase || !accusationResult) return null;
 

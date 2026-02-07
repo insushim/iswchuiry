@@ -17,7 +17,7 @@ function TimeAttackTimer({ timeLimit }: { timeLimit: number }) {
   const { makeAccusation, currentCase, isComplete } = useGameStore();
 
   useEffect(() => {
-    if (isComplete || remaining <= 0) return;
+    if (isComplete) return;
     const t = setInterval(() => {
       setRemaining(prev => {
         if (prev <= 1) {
@@ -32,7 +32,8 @@ function TimeAttackTimer({ timeLimit }: { timeLimit: number }) {
       });
     }, 1000);
     return () => clearInterval(t);
-  }, [isComplete, currentCase, makeAccusation, remaining]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isComplete, currentCase, makeAccusation]);
 
   if (isComplete) return null;
 

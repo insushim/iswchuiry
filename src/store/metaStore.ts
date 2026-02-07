@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 // 시나리오 수 상수 (ALL_SCENARIOS 전체 임포트 방지 - 번들 700KB 절약)
-const SCENARIO_COUNT = 105;
+const SCENARIO_COUNT = 108;
 
 export interface DailyChallengeResult {
   rank: string;

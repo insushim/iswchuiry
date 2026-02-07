@@ -117,7 +117,7 @@ export function HomePage() {
       id: 'classic',
       icon: BookOpen,
       title: '클래식 모드',
-      desc: '102+ 시나리오 | 난이도 선택',
+      desc: '108 시나리오 | 난이도 선택',
       gradient: 'from-amber-500 to-orange-600',
       bgGlow: 'bg-amber-500/10',
       borderColor: 'border-amber-500/20',
@@ -182,7 +182,7 @@ export function HomePage() {
 
   // Content Stats
   const contentStats = [
-    { icon: Target, label: '시나리오', value: '102+' },
+    { icon: Target, label: '시나리오', value: '108' },
     { icon: Shield, label: '사건유형', value: '6종' },
     { icon: BarChart3, label: '난이도', value: '4단계' },
     { icon: Users, label: '캐릭터', value: '60+' },
@@ -221,7 +221,7 @@ export function HomePage() {
             </motion.div>
             <span className="text-lg font-bold tracking-wider text-slate-300">DEDUCTIO</span>
             <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-full text-xs text-amber-400 font-medium">
-              v6.0 - Premium Edition
+              v6.2 - Premium Edition
             </span>
           </div>
           <motion.button
@@ -597,10 +597,10 @@ export function HomePage() {
         <motion.footer variants={item} className="text-center pt-8 border-t border-white/5">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Fingerprint className="w-4 h-4 text-amber-500/60" />
-            <span className="text-sm text-slate-500">DEDUCTIO v6.0 - Premium Edition</span>
+            <span className="text-sm text-slate-500">DEDUCTIO v6.2 - Premium Edition</span>
           </div>
           <p className="text-xs text-slate-600 mb-4">
-            102+ 시나리오 | 8종 퍼즐 | 세계 100대 게임 DNA
+            108 시나리오 | 8종 퍼즐 | 세계 100대 게임 DNA
           </p>
           <div className="flex justify-center gap-3">
             <motion.button
