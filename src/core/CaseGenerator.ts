@@ -12,10 +12,10 @@ import {
   BACKGROUNDS, RELATIONSHIPS_TEMPLATES, ALIBI_TEMPLATES,
   CRIME_METHODS, TIME_SLOTS
 } from '../data/gameData';
-import { generateId, randomChoice, randomInt, randomSample, shuffleArray } from '../utils/helpers';
+import { generateId, shuffleArray } from '../utils/helpers';
 
 // 시드 기반 랜덤 생성기
-class SeededRandom {
+export class SeededRandom {
   private seed: number;
 
   constructor(seed?: number) {
@@ -36,12 +36,17 @@ class SeededRandom {
   }
 
   sample<T>(arr: T[], count: number): T[] {
-    const shuffled = [...arr].sort(() => this.next() - 0.5);
+    const shuffled = this.shuffle(arr);
     return shuffled.slice(0, count);
   }
 
   shuffle<T>(arr: T[]): T[] {
-    return [...arr].sort(() => this.next() - 0.5);
+    const result = [...arr];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(this.next() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
   }
 
   getSeed(): number {
@@ -222,7 +227,7 @@ export class CaseGenerator {
     return {
       type: motiveType,
       description: motiveDescription,
-      strength: this.rng.nextInt(2, 3) as 1 | 2 | 3,
+      strength: this.rng.nextInt(1, 3) as 1 | 2 | 3,
       relatedEvidence: [],
       isRevealed: false
     };
@@ -1095,6 +1100,10 @@ export class CaseGenerator {
     };
   }
 
+  publicValidateCase(caseData: Case): CaseValidationResult {
+    return this.validateCase(caseData);
+  }
+
   private validateCase(caseData: Case): CaseValidationResult {
     const errors: ValidationError[] = [...this.validationErrors];
     const warnings: ValidationWarning[] = [...this.validationWarnings];
@@ -1298,7 +1307,7 @@ export class CaseGenerator {
 // 케이스 품질 검증 유틸리티
 export function validateCaseQuality(caseData: Case): CaseValidationResult {
   const generator = new CaseGenerator(caseData.difficulty, caseData.type);
-  return (generator as any).validateCase(caseData);
+  return generator.publicValidateCase(caseData);
 }
 
 // 100개 케이스 생성 및 검증

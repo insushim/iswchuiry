@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { ALL_SCENARIOS } from '../data/scenarios';
+// 시나리오 수 상수 (ALL_SCENARIOS 전체 임포트 방지 - 번들 700KB 절약)
+const SCENARIO_COUNT = 105;
+
 export interface DailyChallengeResult {
   rank: string;
   score: number;
@@ -104,7 +106,7 @@ interface MetaState {
 export function getDailyScenarioIndex(): number {
   const today = new Date();
   const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-  return seed % ALL_SCENARIOS.length;
+  return seed % SCENARIO_COUNT;
 }
 
 export function getDailyChallengeNumber(): number {
@@ -234,8 +236,8 @@ export const useMetaStore = create<MetaState>()(
         updatedRankDist[result.rank] = (updatedRankDist[result.rank] || 0) + 1;
 
         const updatedPlayedDates = state.playedDates.includes(todayStr)
-          ? state.playedDates
-          : [...state.playedDates, todayStr];
+          ? state.playedDates.slice(-365)
+          : [...state.playedDates, todayStr].slice(-365);
 
         const rankOrder = ['S', 'A', 'B', 'C', 'D', 'F'];
 
@@ -273,7 +275,7 @@ export const useMetaStore = create<MetaState>()(
           scoreHistory: [
             ...state.scoreHistory,
             { date: todayStr, score: result.score, difficulty: result.difficulty, mode: result.mode },
-          ],
+          ].slice(-500),
         });
       },
 

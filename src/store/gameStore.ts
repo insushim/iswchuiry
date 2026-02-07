@@ -7,9 +7,30 @@ import { generateId } from '../utils/helpers';
 import { DIFFICULTY_SETTINGS, DEDUCTION_SYNONYMS } from '../data/gameData';
 import { PuzzleProgress } from '../types/puzzles';
 
+// 점수 상수
+const SCORE = {
+  EVIDENCE_CRITICAL: 50,
+  EVIDENCE_NORMAL: 20,
+  SECRET_REVEAL: 30,
+  DEDUCTION_CORRECT: 40,
+  ACCUSATION_BASE: 500,
+  HINT_BONUS: 20,
+  TIME_FAST_BONUS: 200,
+  TIME_MEDIUM_BONUS: 100,
+  TIME_FAST_THRESHOLD: 10,
+  TIME_MEDIUM_THRESHOLD: 20,
+  EVIDENCE_RATE_THRESHOLD: 0.8,
+  EVIDENCE_RATE_BONUS: 100,
+  RANK_S: 1200,
+  RANK_A: 900,
+  RANK_B: 600,
+  RANK_C: 400,
+  RANK_D: 200,
+} as const;
+
 interface GameStore extends GameState {
   // 게임 라이프사이클
-  startNewGame: (difficulty: 'easy' | 'medium' | 'hard' | 'expert') => void;
+  startNewGame: (difficulty: 'easy' | 'medium' | 'hard' | 'expert', seed?: number) => void;
   resetGame: () => void;
 
   // 페이즈 관리
@@ -96,41 +117,117 @@ export const useGameStore = create<GameStore>()(
   immer((set, get) => ({
     ...initialState,
 
-    startNewGame: (difficulty) => {
-      const generator = new CaseGenerator(difficulty);
+    startNewGame: (difficulty, seed) => {
+      const generator = new CaseGenerator(difficulty, undefined, seed);
       const newCase = generator.generate();
       const settings = DIFFICULTY_SETTINGS[difficulty];
 
-      // 퍼즐 체인 생성
-      const puzzleChain = generatePuzzleChain(newCase, difficulty);
+      // 퍼즐 체인 생성 (같은 시드 기반)
+      const puzzleChain = generatePuzzleChain(newCase, difficulty, seed);
       newCase.puzzleChain = puzzleChain;
 
+      const puzzleProgress = puzzleChain.map(p => ({
+        puzzleId: p.id,
+        isCompleted: false,
+        isUnlocked: false,
+        attempts: 0,
+        hintsUsed: 0,
+        score: 0
+      }));
+      if (puzzleProgress.length > 0) {
+        puzzleProgress[0].isUnlocked = true;
+      }
+
       set((state) => {
-        Object.assign(state, initialState);
+        // 개별 속성 초기화 (immer 안전)
         state.currentCase = newCase;
         state.phase = 'intro';
-        state.hintsRemaining = settings.hintCount;
-        state.startTime = Date.now();
         state.currentLocation = newCase.locations[0]?.id || null;
-        state.puzzleProgress = puzzleChain.map(p => ({
-          puzzleId: p.id,
-          isCompleted: false,
-          isUnlocked: false,
-          attempts: 0,
-          hintsUsed: 0,
-          score: 0
-        }));
-        // 첫 퍼즐 언락
-        if (state.puzzleProgress.length > 0) {
-          state.puzzleProgress[0].isUnlocked = true;
-        }
+        state.currentCharacter = null;
+        state.collectedEvidence = [];
+        state.analyzedEvidence = [];
+        state.examinedObjects = [];
+        state.interviewedCharacters = [];
+        state.revealedSecrets = [];
+        state.revealedTimeline = [];
+        state.deductions = [];
+        state.confirmedFacts = [];
+        state.playerNotes = [];
+        state.hintsUsed = 0;
+        state.hintsRemaining = settings.hintCount;
+        state.score = 0;
+        state.maxScore = 1000;
+        state.startTime = Date.now();
+        state.playTime = 0;
+        state.isComplete = false;
+        state.accusationResult = null;
+        state.achievements = [];
+        state.activeDeductionTab = 'evidence-board';
+        state.logicGrid = {};
+        state.evidenceBoard = { connections: [], positions: {}, pinnedEvidence: [] };
+        state.hypotheses = [];
+        state.foundContradictions = [];
+        state.contradictionCombo = 0;
+        state.puzzleProgress = puzzleProgress;
         state.currentPuzzleIndex = 0;
+        state.statistics = {
+          evidenceFound: 0,
+          totalEvidence: 0,
+          charactersInterviewed: 0,
+          totalCharacters: 0,
+          locationsSearched: 0,
+          totalLocations: 0,
+          deductionsMade: 0,
+          correctDeductions: 0,
+          contradictionsFound: 0,
+          totalContradictions: 0,
+          logicGridProgress: 0,
+          hintsUsed: 0,
+          timeSpent: 0
+        };
       });
     },
 
     resetGame: () => {
       set((state) => {
-        Object.assign(state, initialState);
+        state.currentCase = null;
+        state.phase = 'intro';
+        state.currentLocation = null;
+        state.currentCharacter = null;
+        state.collectedEvidence = [];
+        state.analyzedEvidence = [];
+        state.examinedObjects = [];
+        state.interviewedCharacters = [];
+        state.revealedSecrets = [];
+        state.revealedTimeline = [];
+        state.deductions = [];
+        state.confirmedFacts = [];
+        state.playerNotes = [];
+        state.hintsUsed = 0;
+        state.hintsRemaining = 5;
+        state.score = 0;
+        state.maxScore = 1000;
+        state.startTime = 0;
+        state.playTime = 0;
+        state.isComplete = false;
+        state.accusationResult = null;
+        state.achievements = [];
+        state.activeDeductionTab = 'evidence-board';
+        state.logicGrid = {};
+        state.evidenceBoard = { connections: [], positions: {}, pinnedEvidence: [] };
+        state.hypotheses = [];
+        state.foundContradictions = [];
+        state.contradictionCombo = 0;
+        state.puzzleProgress = [];
+        state.currentPuzzleIndex = 0;
+        state.statistics = {
+          evidenceFound: 0, totalEvidence: 0,
+          charactersInterviewed: 0, totalCharacters: 0,
+          locationsSearched: 0, totalLocations: 0,
+          deductionsMade: 0, correctDeductions: 0,
+          contradictionsFound: 0, totalContradictions: 0,
+          logicGridProgress: 0, hintsUsed: 0, timeSpent: 0
+        };
       });
     },
 
@@ -174,7 +271,7 @@ export const useGameStore = create<GameStore>()(
         if (evidence) {
           set((state) => {
             state.collectedEvidence.push(evidence.id);
-            state.score += evidence.isCritical ? 50 : 20;
+            state.score += evidence.isCritical ? SCORE.EVIDENCE_CRITICAL : SCORE.EVIDENCE_NORMAL;
           });
           return {
             found: true,
@@ -240,7 +337,7 @@ export const useGameStore = create<GameStore>()(
           if (sec) {
             sec.isRevealed = true;
             state.revealedSecrets.push(secretId);
-            state.score += 30;
+            state.score += SCORE.SECRET_REVEAL;
           }
         });
         return true;
@@ -428,7 +525,7 @@ export const useGameStore = create<GameStore>()(
           if (isCorrect) {
             correctCount++;
             state.confirmedFacts.push(deduction.statement);
-            state.score += 40;
+            state.score += SCORE.DEDUCTION_CORRECT;
             state.statistics.correctDeductions++;
           } else if (partialCredit > 0.5) {
             // 부분 점수
@@ -451,7 +548,7 @@ export const useGameStore = create<GameStore>()(
       let score = 0;
 
       if (isCorrect) {
-        score = 500;
+        score = SCORE.ACCUSATION_BASE;
 
         // 난이도 보너스
         const difficultyMultiplier = {
@@ -464,16 +561,16 @@ export const useGameStore = create<GameStore>()(
 
         // 힌트 미사용 보너스
         const hintsRemaining = get().hintsRemaining;
-        score += hintsRemaining * 20;
+        score += hintsRemaining * SCORE.HINT_BONUS;
 
         // 시간 보너스
         const elapsedMinutes = (Date.now() - startTime) / 60000;
-        if (elapsedMinutes < 10) score += 200;
-        else if (elapsedMinutes < 20) score += 100;
+        if (elapsedMinutes < SCORE.TIME_FAST_THRESHOLD) score += SCORE.TIME_FAST_BONUS;
+        else if (elapsedMinutes < SCORE.TIME_MEDIUM_THRESHOLD) score += SCORE.TIME_MEDIUM_BONUS;
 
         // 증거 수집률 보너스
         const collectionRate = collectedEvidence.length / currentCase.evidence.length;
-        if (collectionRate > 0.8) score += 100;
+        if (collectionRate > SCORE.EVIDENCE_RATE_THRESHOLD) score += SCORE.EVIDENCE_RATE_BONUS;
       }
 
       const deductionStats = get().deductions.reduce(
@@ -490,7 +587,7 @@ export const useGameStore = create<GameStore>()(
       const evidenceScore = Math.floor((collectedEvidence.length / currentCase.evidence.length) * 300);
       const deductionScore = deductionStats.correct * 40;
 
-      const rank = score >= 1200 ? 'S' : score >= 900 ? 'A' : score >= 600 ? 'B' : score >= 400 ? 'C' : score >= 200 ? 'D' : 'F';
+      const rank = score >= SCORE.RANK_S ? 'S' : score >= SCORE.RANK_A ? 'A' : score >= SCORE.RANK_B ? 'B' : score >= SCORE.RANK_C ? 'C' : score >= SCORE.RANK_D ? 'D' : 'F';
 
       set((state) => {
         state.isComplete = true;
@@ -506,7 +603,7 @@ export const useGameStore = create<GameStore>()(
           timeBonus,
           totalScore: Math.floor(score),
           rank,
-          stars: (score >= 1200 ? 3 : score >= 600 ? 2 : score >= 200 ? 1 : 0) as 0 | 1 | 2 | 3,
+          stars: (score >= SCORE.RANK_S ? 3 : score >= SCORE.RANK_B ? 2 : score >= SCORE.RANK_D ? 1 : 0) as 0 | 1 | 2 | 3,
           feedback: isCorrect
             ? ['정확한 추리였습니다! 모든 증거가 범인을 가리키고 있었습니다.']
             : ['안타깝게도 틀렸습니다. 증거를 다시 살펴보세요.'],

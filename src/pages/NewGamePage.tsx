@@ -7,7 +7,7 @@ import {
   Trophy, Clock, Shield, ChevronRight, Flame
 } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
-import { useMetaStore, getDailyChallengeNumber } from '../store/metaStore';
+import { useMetaStore, getDailyChallengeNumber, getDailyScenarioIndex } from '../store/metaStore';
 import { Difficulty } from '../types';
 
 type GameMode = 'classic' | 'daily' | 'timeattack' | 'brain';
@@ -61,8 +61,19 @@ export function NewGamePage() {
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 800));
     const diff = mode === 'daily' ? 'medium' as Difficulty : selected;
-    startNewGame(diff);
-    navigate('/game');
+
+    // 일일 도전: 날짜 기반 시드로 모든 플레이어가 같은 케이스
+    const seed = mode === 'daily' ? getDailyScenarioIndex() : undefined;
+    startNewGame(diff, seed);
+
+    // 모드별 쿼리 파라미터 전달
+    const params = new URLSearchParams();
+    if (mode === 'timeattack') params.set('timeLimit', '900'); // 15분 = 900초
+    if (mode === 'brain') params.set('brainMode', 'true');
+    if (mode === 'daily') params.set('dailyMode', 'true');
+
+    const query = params.toString();
+    navigate(`/game${query ? `?${query}` : ''}`);
   };
 
   const selectedDiff = difficulties.find(d => d.key === selected)!;

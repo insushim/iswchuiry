@@ -45,8 +45,8 @@ function useTypewriter(text: string, speed = 60) {
   return display;
 }
 
-// ---- Countdown Hook ----
-function useCountdownToMidnight() {
+// ---- Countdown Component (격리하여 매초 리렌더링이 HomePage 전체에 영향 안 줌) ----
+const CountdownDisplay = React.memo(function CountdownDisplay() {
   const [timeLeft, setTimeLeft] = useState('');
   useEffect(() => {
     const calc = () => {
@@ -64,8 +64,8 @@ function useCountdownToMidnight() {
     const t = setInterval(calc, 1000);
     return () => clearInterval(t);
   }, []);
-  return timeLeft;
-}
+  return <>{timeLeft}</>;
+});
 
 // ---- Flame Animation Component ----
 function FlameIcon({ streak }: { streak: number }) {
@@ -91,7 +91,7 @@ function FlameIcon({ streak }: { streak: number }) {
 export function HomePage() {
   const navigate = useNavigate();
   const subtitle = useTypewriter('세계 최고의 추리 두뇌 게임', 60);
-  const countdown = useCountdownToMidnight();
+  // countdown은 별도 컴포넌트로 분리 (매초 리렌더링 방지)
 
   const {
     currentStreak, longestStreak, totalGamesPlayed, totalGamesWon,
@@ -313,7 +313,7 @@ export function HomePage() {
                     </p>
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                       <Clock className="w-3.5 h-3.5" />
-                      다음 사건까지 {countdown}
+                      다음 사건까지 <CountdownDisplay />
                     </div>
                   </div>
                 ) : (

@@ -16,6 +16,10 @@ import {
   LogicGridData, LogicGridSuspect, LogicGridCategory, LogicGridClue
 } from '../types/puzzles';
 import { generateId } from '../utils/helpers';
+import { SeededRandom } from './CaseGenerator';
+
+// 모듈 레벨 시드 랜덤 인스턴스 (generatePuzzleChain에서 설정)
+let rng: SeededRandom = new SeededRandom();
 
 // 난이도별 퍼즐 구성
 const DIFFICULTY_PUZZLE_MAP: Record<Difficulty, PuzzleType[]> = {
@@ -35,7 +39,8 @@ const EVIDENCE_ICONS: Record<string, string> = {
   physical: '🔍', testimony: '💬', document: '📄', digital: '💻', forensic: '🧪'
 };
 
-export function generatePuzzleChain(caseData: Case, difficulty: Difficulty): PuzzleConfig[] {
+export function generatePuzzleChain(caseData: Case, difficulty: Difficulty, seed?: number): PuzzleConfig[] {
+  rng = new SeededRandom(seed);
   const puzzleTypes = DIFFICULTY_PUZZLE_MAP[difficulty];
   const puzzles: PuzzleConfig[] = [];
   let stepNum = 0;
@@ -116,7 +121,7 @@ function generateHiddenObject(caseData: Case, difficulty: Difficulty, step: numb
   for (const obj of normalObjects.slice(0, cols * rows - cells.length)) {
     const row = Math.floor(cellIdx / cols) + 1;
     const col = (cellIdx % cols) + 1;
-    const isRedHerring = Math.random() < 0.2;
+    const isRedHerring = rng.next() < 0.2;
     cells.push({
       id: generateId(),
       row, col,
@@ -148,7 +153,7 @@ function generateHiddenObject(caseData: Case, difficulty: Difficulty, step: numb
   }
 
   // 셀 순서 섞기
-  const shuffled = [...cells].sort(() => Math.random() - 0.5);
+  const shuffled = rng.shuffle(cells);
   shuffled.forEach((cell, i) => {
     cell.row = Math.floor(i / cols) + 1;
     cell.col = (i % cols) + 1;
@@ -191,7 +196,7 @@ function generateCipher(caseData: Case, difficulty: Difficulty, step: number): P
     ? criticalEvidence.name.slice(0, 8)
     : caseData.motive.slice(0, 8);
 
-  const shift = Math.floor(Math.random() * 5) + 2; // 2-6 shift
+  const shift = rng.nextInt(2, 6);
 
   const data: CipherData = {
     type: 'cipher-decode',
@@ -223,9 +228,14 @@ function generateCipher(caseData: Case, difficulty: Difficulty, step: number): P
 
 // ── 3. 타임라인 재구성 ──────────────────
 function generateTimeline(caseData: Case, difficulty: Difficulty, step: number): PuzzleConfig {
-  const keyEvents = caseData.timeline
+  let keyEvents = caseData.timeline
     .filter(e => e.importance !== 'minor')
     .slice(0, difficulty === 'easy' ? 4 : difficulty === 'medium' ? 5 : 6);
+
+  // 빈 이벤트 배열 방어: minor 포함하여 최소 3개 보장
+  if (keyEvents.length < 3) {
+    keyEvents = caseData.timeline.slice(0, difficulty === 'easy' ? 4 : difficulty === 'medium' ? 5 : 6);
+  }
 
   const events: TimelineCard[] = keyEvents.map(event => ({
     id: event.id,
@@ -305,8 +315,8 @@ function generateContradiction(caseData: Case, difficulty: Difficulty, step: num
     });
   }
 
-  // 순서 섞기
-  const shuffled = [...statements].sort(() => Math.random() - 0.5);
+  // 순서 섞기 (Fisher-Yates)
+  const shuffled = rng.shuffle(statements);
 
   const data: ContradictionData = {
     type: 'contradiction',
@@ -404,8 +414,8 @@ function generatePatternMatch(caseData: Case, difficulty: Difficulty, step: numb
     matchPairs.push([cardA.id, cardB.id]);
   });
 
-  // 카드 섞기
-  const shuffledCards = [...cards].sort(() => Math.random() - 0.5);
+  // 카드 섞기 (Fisher-Yates)
+  const shuffledCards = rng.shuffle(cards);
 
   const data: PatternMatchData = {
     type: 'pattern-match',
@@ -527,9 +537,9 @@ function generateEvidenceChain(caseData: Case, difficulty: Difficulty, step: num
 function generateCombinationLock(caseData: Case, difficulty: Difficulty, step: number): PuzzleConfig {
   const digits = ['0','1','2','3','4','5','6','7','8','9'];
   const solution = [
-    digits[Math.floor(Math.random() * 10)],
-    digits[Math.floor(Math.random() * 10)],
-    digits[Math.floor(Math.random() * 10)]
+    digits[rng.nextInt(0, 9)],
+    digits[rng.nextInt(0, 9)],
+    digits[rng.nextInt(0, 9)]
   ];
 
   // 범행 시간에서 힌트 생성
@@ -767,5 +777,5 @@ function getNodeY(index: number, total: number): number {
 
 function randomMotiveType(): string {
   const types = ['복수', '탐욕', '질투', '두려움', '보호'];
-  return types[Math.floor(Math.random() * types.length)];
+  return rng.choice(types);
 }
