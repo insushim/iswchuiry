@@ -221,7 +221,7 @@ export function HomePage() {
             </motion.div>
             <span className="text-lg font-bold tracking-wider text-slate-300">DEDUCTIO</span>
             <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-full text-xs text-amber-400 font-medium">
-              v4.0 - World Edition
+              v6.0 - Premium Edition
             </span>
           </div>
           <motion.button
@@ -597,10 +597,10 @@ export function HomePage() {
         <motion.footer variants={item} className="text-center pt-8 border-t border-white/5">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Fingerprint className="w-4 h-4 text-amber-500/60" />
-            <span className="text-sm text-slate-500">DEDUCTIO v4.0 - World Edition</span>
+            <span className="text-sm text-slate-500">DEDUCTIO v6.0 - Premium Edition</span>
           </div>
           <p className="text-xs text-slate-600 mb-4">
-            100개 세계적 게임의 혁신을 담았습니다
+            102+ 시나리오 | 8종 퍼즐 | 세계 100대 게임 DNA
           </p>
           <div className="flex justify-center gap-3">
             <motion.button

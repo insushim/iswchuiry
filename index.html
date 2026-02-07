@@ -3,12 +3,95 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <meta name="theme-color" content="#0f172a" />
-    <meta name="description" content="AI가 만드는 무한한 추리 세계 - DEDUCTIO" />
+    <meta name="description" content="DEDUCTIO - AI가 만드는 무한한 추리 세계. 102+ 시나리오, 8종 퍼즐, 4단계 난이도의 프리미엄 추리 게임" />
+    <meta name="keywords" content="추리게임, 탐정게임, 미스터리, DEDUCTIO, 논리퍼즐, 브레인게임" />
+    <meta name="author" content="ISW Studio" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="DEDUCTIO - AI 추리 게임" />
+    <meta property="og:description" content="102+ 시나리오, 8종 퍼즐 시스템. 세계 최고의 추리 두뇌 게임에 도전하세요." />
+    <meta property="og:site_name" content="DEDUCTIO" />
+    <meta property="og:locale" content="ko_KR" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="DEDUCTIO - AI 추리 게임" />
+    <meta name="twitter:description" content="102+ 시나리오, 8종 퍼즐 시스템. 세계 최고의 추리 두뇌 게임." />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="DEDUCTIO" />
+
+    <!-- Preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
     <title>DEDUCTIO - AI 추리 게임</title>
+
+    <!-- Loading Screen (shown before React mounts) -->
+    <style>
+      #loading-screen {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.5s ease-out;
+      }
+      #loading-screen.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #loading-logo {
+        font-size: 3rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, #f59e0b, #fbbf24, #f59e0b);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: 0.1em;
+        animation: pulse-loading 2s ease-in-out infinite;
+      }
+      #loading-bar {
+        width: 200px;
+        height: 3px;
+        background: #1e293b;
+        border-radius: 3px;
+        margin-top: 24px;
+        overflow: hidden;
+      }
+      #loading-bar::after {
+        content: '';
+        display: block;
+        width: 40%;
+        height: 100%;
+        background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        border-radius: 3px;
+        animation: loading-slide 1.2s ease-in-out infinite;
+      }
+      @keyframes pulse-loading {
+        0%, 100% { opacity: 0.8; }
+        50% { opacity: 1; }
+      }
+      @keyframes loading-slide {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(350%); }
+      }
+    </style>
   </head>
   <body>
+    <div id="loading-screen">
+      <div id="loading-logo">DEDUCTIO</div>
+      <div id="loading-bar"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
