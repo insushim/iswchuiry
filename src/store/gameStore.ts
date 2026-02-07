@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { GameState, Deduction, GamePhase } from '../types';
+import { GameState, Deduction, GamePhase, SelectionDeduction } from '../types';
 import { CaseGenerator } from '../core/CaseGenerator';
 import { generatePuzzleChain } from '../core/PuzzleGenerator';
 import { generateId } from '../utils/helpers';
-import { DIFFICULTY_SETTINGS, DEDUCTION_SYNONYMS } from '../data/gameData';
+import { DIFFICULTY_SETTINGS, DEDUCTION_SYNONYMS, MOTIVE_LABELS } from '../data/gameData';
 import { PuzzleProgress } from '../types/puzzles';
 
 // 점수 상수
@@ -56,6 +56,11 @@ interface GameStore extends GameState {
   // 힌트
   useHint: () => string | null;
 
+  // v7: 용의자 보드 + 선택식 추론
+  toggleSuspectNote: (suspectId: string) => void;
+  setSelectionDeduction: (field: keyof SelectionDeduction, value: string | null) => void;
+  submitSelectionDeduction: () => { suspectCorrect: boolean; motiveCorrect: boolean; evidenceCorrect: boolean };
+
   // 퍼즐 체인
   initPuzzleChain: () => void;
   solvePuzzle: (puzzleId: string, score: number) => void;
@@ -96,6 +101,9 @@ const initialState: GameState = {
   contradictionCombo: 0,
   puzzleProgress: [],
   currentPuzzleIndex: 0,
+  suspectNotes: {},
+  selectionDeduction: { suspectId: null, motiveType: null, keyEvidenceId: null },
+  hintLevel: 0,
   statistics: {
     evidenceFound: 0,
     totalEvidence: 0,
@@ -170,6 +178,9 @@ export const useGameStore = create<GameStore>()(
         state.contradictionCombo = 0;
         state.puzzleProgress = puzzleProgress;
         state.currentPuzzleIndex = 0;
+        state.suspectNotes = {};
+        state.selectionDeduction = { suspectId: null, motiveType: null, keyEvidenceId: null };
+        state.hintLevel = 0;
         state.statistics = {
           evidenceFound: 0,
           totalEvidence: 0,
@@ -220,6 +231,9 @@ export const useGameStore = create<GameStore>()(
         state.contradictionCombo = 0;
         state.puzzleProgress = [];
         state.currentPuzzleIndex = 0;
+        state.suspectNotes = {};
+        state.selectionDeduction = { suspectId: null, motiveType: null, keyEvidenceId: null };
+        state.hintLevel = 0;
         state.statistics = {
           evidenceFound: 0, totalEvidence: 0,
           charactersInterviewed: 0, totalCharacters: 0,
@@ -545,6 +559,9 @@ export const useGameStore = create<GameStore>()(
       }
 
       const isCorrect = suspectId === currentCase.culpritId;
+      const { selectionDeduction: sd } = get();
+      const motiveCorrect = currentCase.characters.find(c => c.id === currentCase.culpritId)?.motive?.type === sd.motiveType;
+      const evidenceBonus = sd.keyEvidenceId && currentCase.evidence.find(e => e.id === sd.keyEvidenceId && e.isCritical) ? 100 : 0;
       let score = 0;
 
       if (isCorrect) {
@@ -571,6 +588,10 @@ export const useGameStore = create<GameStore>()(
         // 증거 수집률 보너스
         const collectionRate = collectedEvidence.length / Math.max(currentCase.evidence.length, 1);
         if (collectionRate > SCORE.EVIDENCE_RATE_THRESHOLD) score += SCORE.EVIDENCE_RATE_BONUS;
+
+        // 선택식 추론 보너스
+        if (motiveCorrect) score += 150;
+        score += evidenceBonus;
       }
 
       const deductionStats = get().deductions.reduce(
@@ -621,23 +642,31 @@ export const useGameStore = create<GameStore>()(
     },
 
     useHint: () => {
-      const { currentCase, hintsRemaining, collectedEvidence, interviewedCharacters } = get();
+      const { currentCase, hintsRemaining, collectedEvidence, interviewedCharacters, hintLevel } = get();
 
       if (hintsRemaining <= 0 || !currentCase) return null;
 
       set((state) => {
         state.hintsUsed++;
         state.hintsRemaining--;
+        state.hintLevel = Math.min(state.hintLevel + 1, 3);
       });
 
-      // 힌트 생성 로직
-      const uncollectedEvidence = currentCase.evidence.filter(
+      const uncollectedCritical = currentCase.evidence.filter(
         e => e.isCritical && !e.isRedHerring && !collectedEvidence.includes(e.id)
       );
 
-      if (uncollectedEvidence.length > 0) {
-        const hint = uncollectedEvidence[0];
-        return `중요한 단서가 "${hint.location}"에 있을 수 있어요.`;
+      const currentHintLevel = hintLevel;
+
+      if (uncollectedCritical.length > 0) {
+        const hint = uncollectedCritical[0];
+        if (currentHintLevel === 0) {
+          return '아직 발견하지 못한 중요한 단서가 있습니다. 장소를 꼼꼼히 살펴보세요.';
+        } else if (currentHintLevel === 1) {
+          return `"${hint.location}" 근처를 더 자세히 조사해보세요.`;
+        } else {
+          return `"${hint.location}"에서 "${hint.foundAt}"을(를) 확인해보세요.`;
+        }
       }
 
       const uninterviewedChars = currentCase.characters.filter(
@@ -645,10 +674,23 @@ export const useGameStore = create<GameStore>()(
       );
 
       if (uninterviewedChars.length > 0) {
-        return `"${uninterviewedChars[0].name}"에게 아직 이야기를 듣지 않았어요.`;
+        if (currentHintLevel === 0) {
+          return '아직 이야기하지 않은 인물이 있습니다.';
+        }
+        return `"${uninterviewedChars[0].name}"에게 이야기를 들어보세요.`;
       }
 
-      return `수집한 증거들을 연결해서 생각해보세요. 누가 동기와 기회를 가졌나요?`;
+      // 추론 힌트
+      const culprit = currentCase.characters.find(c => c.id === currentCase.culpritId);
+      if (culprit) {
+        const profile = culprit.physicalProfile;
+        if (currentHintLevel <= 1) {
+          return '수집한 증거의 신체 특성 정보를 용의자 프로필과 대조해보세요.';
+        }
+        return `범인의 신발 크기와 체격에 주목하세요. 증거가 가리키는 특성을 가진 사람을 찾아보세요.`;
+      }
+
+      return '수집한 증거들을 연결해서 생각해보세요. 누가 동기와 기회를 가졌나요?';
     },
 
     initPuzzleChain: () => {
@@ -705,6 +747,52 @@ export const useGameStore = create<GameStore>()(
           state.playTime = Math.floor((Date.now() - state.startTime) / 1000);
         }
       });
+    },
+
+    toggleSuspectNote: (suspectId) => {
+      set((state) => {
+        const current = state.suspectNotes[suspectId] || 'unknown';
+        const next = current === 'unknown' ? 'suspected' : current === 'suspected' ? 'eliminated' : 'unknown';
+        state.suspectNotes[suspectId] = next;
+      });
+    },
+
+    setSelectionDeduction: (field, value) => {
+      set((state) => {
+        (state.selectionDeduction as Record<string, string | null>)[field] = value;
+      });
+    },
+
+    submitSelectionDeduction: () => {
+      const { currentCase, selectionDeduction, collectedEvidence } = get();
+      if (!currentCase) return { suspectCorrect: false, motiveCorrect: false, evidenceCorrect: false };
+
+      const suspectCorrect = selectionDeduction.suspectId === currentCase.culpritId;
+      const culprit = currentCase.characters.find(c => c.id === currentCase.culpritId);
+      const motiveCorrect = culprit?.motive?.type === selectionDeduction.motiveType;
+      const selectedEvidence = currentCase.evidence.find(e => e.id === selectionDeduction.keyEvidenceId);
+      const evidenceCorrect = selectedEvidence?.isCritical === true && !selectedEvidence?.isRedHerring;
+
+      let bonusScore = 0;
+      if (suspectCorrect) bonusScore += 100;
+      if (motiveCorrect) bonusScore += 80;
+      if (evidenceCorrect) bonusScore += 60;
+
+      set((state) => {
+        state.score += bonusScore;
+        if (suspectCorrect) {
+          state.confirmedFacts.push(`범인: ${culprit?.name}`);
+        }
+        if (motiveCorrect) {
+          const motiveLabel = MOTIVE_LABELS[selectionDeduction.motiveType || ''] || selectionDeduction.motiveType;
+          state.confirmedFacts.push(`동기: ${motiveLabel}`);
+        }
+        if (evidenceCorrect) {
+          state.confirmedFacts.push(`핵심 증거: ${selectedEvidence?.name}`);
+        }
+      });
+
+      return { suspectCorrect, motiveCorrect, evidenceCorrect };
     }
   }))
 );

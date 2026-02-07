@@ -4,8 +4,9 @@ import { useGameStore } from '../../store/gameStore';
 import {
   MapPin, Search, Eye, MessageSquare, Brain,
   ChevronRight, Lightbulb, X, Check, Sparkles,
-  FileText, Camera, Users, HardDrive, Microscope, Navigation
+  FileText, Camera, Users, HardDrive, Microscope, Navigation, Fingerprint
 } from 'lucide-react';
+import { SuspectBoard } from '../SuspectBoard';
 
 const EVIDENCE_ICONS: Record<string, React.ElementType> = {
   physical: Camera, testimony: Users, document: FileText, digital: HardDrive, forensic: Microscope
@@ -23,6 +24,7 @@ export function InvestigationPhase() {
 
   const [showLocationMap, setShowLocationMap] = useState(false);
   const [showEvidencePanel, setShowEvidencePanel] = useState(false);
+  const [showSuspectBoard, setShowSuspectBoard] = useState(false);
   const [examineResult, setExamineResult] = useState<{ message: string; found: boolean } | null>(null);
   const [hintMessage, setHintMessage] = useState<string | null>(null);
 
@@ -231,6 +233,14 @@ export function InvestigationPhase() {
               <FileText size={16} className="text-blue-400" />
               증거함 ({collectedEvidence.length})
             </motion.button>
+            <motion.button
+              onClick={() => setShowSuspectBoard(true)}
+              className="btn-secondary flex items-center gap-2 text-sm"
+              whileHover={{ scale: 1.03 }}
+            >
+              <Fingerprint size={16} className="text-red-400" />
+              용의자
+            </motion.button>
           </div>
 
           <div className="flex gap-2">
@@ -257,6 +267,11 @@ export function InvestigationPhase() {
           </div>
         </div>
       </motion.div>
+
+      {/* Suspect Board Modal */}
+      <AnimatePresence>
+        <SuspectBoard isOpen={showSuspectBoard} onClose={() => setShowSuspectBoard(false)} />
+      </AnimatePresence>
 
       {/* Location Map Modal */}
       <AnimatePresence>

@@ -83,6 +83,63 @@ export const APPEARANCES = {
   ]
 };
 
+// 신체 프로필 데이터 (간접 증거 시스템)
+export const PHYSICAL_HEIGHTS = ['단신', '보통키', '장신'] as const;
+export const PHYSICAL_BUILDS = ['마른', '보통체격', '건장한'] as const;
+export const PHYSICAL_HANDEDNESS = ['왼손잡이', '오른손잡이'] as const;
+export const BLOOD_TYPES = ['A', 'B', 'O', 'AB'] as const;
+export const DISTINCTIVE_FEATURES = [
+  '안경 착용', '짧은 머리', '긴 머리', '손목 시계 착용',
+  '피어싱', '반창고가 붙어있음', '항상 모자를 쓰고 다님',
+  '왼쪽 귀에 흉터', '오른손에 반지', '목걸이 착용',
+  '늘 후드를 쓰고 다님', '특이한 신발을 신고 다님'
+];
+export const SHOE_SIZES = {
+  male: { teen: [255, 260, 265, 270, 275, 280], adult: [260, 265, 270, 275, 280] },
+  female: { teen: [230, 235, 240, 245, 250], adult: [235, 240, 245, 250, 255] }
+};
+export const ACCESS_AREAS_BY_OCCUPATION: Record<string, string[]> = {
+  teacher: ['교무실', '교과준비실', '보안실'],
+  counselor: ['상담실', '교무실', '보안실'],
+  janitor: ['보안실', '창고', '옥상', '지하실'],
+  studentCouncil: ['학생회실', '방송실'],
+  libraryHelper: ['도서관 서고', '도서관 사무실'],
+  clubLeader: ['동아리실'],
+  athlete: ['체육관 창고', '탈의실'],
+  default: []
+};
+
+// 간접 증거 템플릿 (범인 이름 대신 특성을 참조)
+export const INDIRECT_EVIDENCE_TEMPLATES = {
+  physical: [
+    { trait: 'shoeSize', template: (v: number) => `범행 현장에서 ${v}mm 크기의 신발 자국이 발견되었다.`, name: '현장 신발 자국' },
+    { trait: 'handedness', template: (v: string) => `현장의 흔적으로 보아 범인은 ${v}인 것으로 추정된다.`, name: '필적 분석 결과' },
+    { trait: 'build', template: (v: string) => `무거운 물건이 옮겨진 흔적. ${v} 체격의 사람만 가능해 보인다.`, name: '물리적 흔적 분석' },
+    { trait: 'height', template: (v: string) => `CCTV 문틀 높이와 비교한 결과, 범인은 ${v}인 것으로 보인다.`, name: 'CCTV 신장 분석' },
+  ],
+  forensic: [
+    { trait: 'bloodType', template: (v: string) => `현장에서 발견된 혈흔은 ${v}형이다.`, name: '혈흔 분석 결과' },
+    { trait: 'distinctiveFeature', template: (v: string) => `현장에서 "${v}"과(와) 관련된 흔적이 발견되었다.`, name: '특징적 흔적' },
+  ],
+  alibi: [
+    { trait: 'accessAreas', template: (v: string) => `범행 장소는 ${v}에 접근 가능한 사람만 들어갈 수 있다.`, name: '접근 권한 분석' },
+  ],
+  schedule: [
+    { trait: 'alibiHole', template: (_v: string, time: string) => `CCTV 분석 결과, ${time} 경에 복도를 지나가는 인물이 포착되었으나 얼굴은 확인 불가.`, name: 'CCTV 시간대 분석' },
+  ]
+};
+
+// 동기 선택지 (선택식 추론용)
+export const MOTIVE_LABELS: Record<string, string> = {
+  revenge: '복수',
+  greed: '탐욕',
+  jealousy: '질투',
+  fear: '공포/은폐',
+  protection: '보호/방어',
+  ideology: '신념',
+  accident: '우발적'
+};
+
 export const BACKGROUNDS = {
   student: [
     '평범한 가정에서 자랐으며 특별한 일 없이 지내왔다',

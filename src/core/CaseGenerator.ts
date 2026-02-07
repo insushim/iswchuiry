@@ -10,7 +10,10 @@ import {
   LOCATIONS, CASE_TEMPLATES, DIALOGUE_TEMPLATES,
   EVIDENCE_TEMPLATES, DIFFICULTY_SETTINGS, APPEARANCES,
   BACKGROUNDS, RELATIONSHIPS_TEMPLATES, ALIBI_TEMPLATES,
-  CRIME_METHODS, TIME_SLOTS
+  CRIME_METHODS, TIME_SLOTS,
+  PHYSICAL_HEIGHTS, PHYSICAL_BUILDS,
+  BLOOD_TYPES, DISTINCTIVE_FEATURES, SHOE_SIZES,
+  ACCESS_AREAS_BY_OCCUPATION
 } from '../data/gameData';
 import { generateId, shuffleArray } from '../utils/helpers';
 
@@ -265,6 +268,21 @@ export class CaseGenerator {
         ? firstAppearanceTimes[i] // 처음 3명은 일찍 등장
         : this.rng.choice(firstAppearanceTimes);
 
+      const isAdult = occupation.id === 'teacher' || occupation.id === 'counselor' || occupation.id === 'janitor';
+      const shoeSizes = gender === 'male'
+        ? (isAdult ? SHOE_SIZES.male.adult : SHOE_SIZES.male.teen)
+        : (isAdult ? SHOE_SIZES.female.adult : SHOE_SIZES.female.teen);
+
+      const physicalProfile = {
+        height: this.rng.choice([...PHYSICAL_HEIGHTS]),
+        build: this.rng.choice([...PHYSICAL_BUILDS]),
+        handedness: this.rng.next() > 0.85 ? '왼손잡이' as const : '오른손잡이' as const,
+        shoeSize: this.rng.choice(shoeSizes),
+        distinctiveFeature: this.rng.choice(DISTINCTIVE_FEATURES),
+        bloodType: this.rng.choice([...BLOOD_TYPES]),
+        accessAreas: ACCESS_AREAS_BY_OCCUPATION[occupation.id] || ACCESS_AREAS_BY_OCCUPATION.default
+      };
+
       characters.push({
         id: generateId(),
         name,
@@ -275,6 +293,7 @@ export class CaseGenerator {
         description: `${personality.traits.join(', ')} 성격의 ${occupation.name}`,
         appearance,
         background,
+        physicalProfile,
         alibi: {
           location: '',
           startTime: '',
@@ -353,12 +372,12 @@ export class CaseGenerator {
 
   private generateAlibiHole(culprit: Character, crimeTime: string): string {
     const holeTemplates = [
-      `${crimeTime} 경에 ${culprit.alibi.location}을(를) 잠시 비웠다는 증언이 있다`,
-      `알리바이를 증명해줄 증인이 ${culprit.name}과(와) 친한 관계여서 신뢰도가 낮다`,
+      `${crimeTime} 경에 ${culprit.alibi.location}을(를) 잠시 비운 것으로 보인다`,
+      `알리바이를 증명해줄 증인의 진술이 일관되지 않는다`,
       `${culprit.alibi.location}에서 사건 현장까지 5분이면 이동 가능하다`,
-      `CCTV에 ${crimeTime} 전후로 ${culprit.name}의 모습이 찍히지 않았다`,
-      `${culprit.name}이(가) 주장하는 시간대에 실제로 거기 있었다는 물증이 없다`,
-      `복도에서 ${culprit.name}이(가) 사건 현장 방향으로 가는 걸 봤다는 목격담이 있다`
+      `CCTV에 ${crimeTime} 전후로 해당 인물의 모습이 포착되지 않았다`,
+      `주장하는 시간대에 실제로 그곳에 있었다는 물증이 없다`,
+      `복도에서 사건 현장 방향으로 이동하는 모습이 목격되었다`
     ];
     return this.rng.choice(holeTemplates);
   }
@@ -468,67 +487,88 @@ export class CaseGenerator {
     count: number
   ): Evidence[] {
     const critical: Evidence[] = [];
-    const criticalTemplates = EVIDENCE_TEMPLATES.critical || EVIDENCE_TEMPLATES.physical;
+    const profile = culprit.physicalProfile;
 
-    // 증거 1: 범인의 물리적 흔적
+    // 증거 1: 신체적 흔적 (신발 크기 또는 체격)
+    const physicalClue = this.rng.next() > 0.5
+      ? { name: '현장 신발 자국', desc: `범행 현장 바닥에 ${profile.shoeSize}mm 크기의 신발 자국이 선명하게 남아있다.`, detail: `정밀 분석 결과, 이 신발 자국의 크기는 정확히 ${profile.shoeSize}mm이다. 용의자들의 신발 사이즈를 대조해볼 필요가 있다.` }
+      : { name: '체격 흔적 분석', desc: `범행에 사용된 힘의 정도로 보아 범인의 체격을 추정할 수 있다.`, detail: `물리적 분석 결과, 이 범행은 ${profile.build} 체격의 인물이 저지른 것으로 추정된다. 또한 흔적의 방향으로 보아 ${profile.handedness}일 가능성이 높다.` };
+
     critical.push({
       id: generateId(),
-      name: `${culprit.name}의 지문이 묻은 물건`,
+      name: physicalClue.name,
       type: 'physical',
-      description: '사건 현장에서 발견된 물건에 지문이 남아있다.',
-      detailedDescription: `분석 결과, 이 지문은 ${culprit.name}의 것과 일치한다. 이 물건이 사건 현장에 있을 이유가 없다.`,
+      description: physicalClue.desc,
+      detailedDescription: physicalClue.detail,
       location: this.rng.choice(locations).name,
-      foundAt: '사건 현장 근처',
+      foundAt: '사건 현장',
       linkedCharacters: [culprit.id],
       isRedHerring: false,
       isCollected: false,
       isCritical: true,
-      criticalReason: '범인의 현장 존재를 증명',
+      criticalReason: '범인의 신체적 특성 단서',
       discoveryDifficulty: 2,
       analysisRequired: true,
-      analysisResult: `${culprit.name}의 지문 확인`,
+      analysisResult: `신체 특성 프로파일링 결과`,
       timestamp: crimeTime,
-      weight: 30
+      weight: 30,
+      implicates: [culprit.id],
+      exonerates: []
     });
 
-    // 증거 2: 알리바이 모순
+    // 증거 2: 시간대/알리바이 기반 증거 (CCTV, 접근 기록)
+    const hasSpecialAccess = profile.accessAreas.length > 0;
+    const alibiClue = hasSpecialAccess
+      ? { name: '출입 기록 분석', desc: `범행 장소의 출입 기록을 분석한 결과, ${crimeTime} 경에 카드키 인증 기록이 있다.`, detail: `이 구역은 특별 접근 권한이 있는 사람만 출입 가능하다. ${profile.accessAreas.join(', ')} 등에 접근 가능한 인물을 확인해야 한다.` }
+      : { name: 'CCTV 시간대 분석', desc: `${crimeTime} 경 복도 CCTV에 ${profile.height}의 인물이 포착되었다.`, detail: `CCTV 영상에 찍힌 인물은 ${profile.height}이며, 얼굴은 확인되지 않았다. ${profile.distinctiveFeature}과(와) 유사한 특징이 보인다.` };
+
     critical.push({
       id: generateId(),
-      name: 'CCTV 영상 기록',
+      name: alibiClue.name,
       type: 'digital',
-      description: '복도 CCTV에 기록된 영상.',
-      detailedDescription: `${crimeTime} 경, ${culprit.name}이(가) 주장한 장소가 아닌 다른 곳에서 발견된다. 알리바이에 빈틈이 있다.`,
+      description: alibiClue.desc,
+      detailedDescription: alibiClue.detail,
       location: '보안실',
-      foundAt: '보안실 녹화기',
+      foundAt: '보안실 모니터',
       linkedCharacters: [culprit.id],
       isRedHerring: false,
       isCollected: false,
       isCritical: true,
-      criticalReason: '알리바이 모순 증명',
+      criticalReason: '시간대 및 접근 권한 단서',
       discoveryDifficulty: 2,
       analysisRequired: false,
       timestamp: crimeTime,
-      weight: 35
+      weight: 35,
+      implicates: [culprit.id],
+      exonerates: []
     });
 
-    // 증거 3: 동기 관련 증거
+    // 증거 3: 동기/행동 기반 간접 증거
+    const motiveClue = {
+      name: '수상한 메모 조각',
+      desc: `구겨진 메모지가 발견되었다. ${profile.handedness}가 쓴 필체로 보인다.`,
+      detail: `메모에는 "${motive.description.slice(0, 15)}..."와 관련된 내용이 적혀있다. 필적은 ${profile.handedness}의 것이며, 감정적으로 격앙된 상태에서 쓴 것으로 분석된다.`
+    };
+
     critical.push({
       id: generateId(),
-      name: '숨겨진 메모',
+      name: motiveClue.name,
       type: 'document',
-      description: '구겨진 메모지에 적힌 내용.',
-      detailedDescription: `${culprit.name}이(가) ${motive.description.slice(0, 20)}...와 관련된 내용이 적혀있다. 동기를 암시한다.`,
+      description: motiveClue.desc,
+      detailedDescription: motiveClue.detail,
       location: this.rng.choice(locations).name,
-      foundAt: '쓰레기통',
+      foundAt: '쓰레기통 근처',
       linkedCharacters: [culprit.id],
       isRedHerring: false,
       isCollected: false,
       isCritical: true,
-      criticalReason: '범행 동기 증명',
+      criticalReason: '동기 및 필적 단서',
       discoveryDifficulty: 3,
       analysisRequired: false,
       timestamp: undefined,
-      weight: 25
+      weight: 25,
+      implicates: [culprit.id],
+      exonerates: []
     });
 
     return critical.slice(0, count);
@@ -1253,6 +1293,15 @@ export class CaseGenerator {
       description: '평범한 학생',
       appearance: '평범한 외모',
       background: '평범한 배경',
+      physicalProfile: {
+        height: '보통키',
+        build: '보통체격',
+        handedness: '오른손잡이',
+        shoeSize: 265,
+        distinctiveFeature: '안경 착용',
+        bloodType: 'A',
+        accessAreas: []
+      },
       alibi: {
         location: '교실',
         startTime: '11:00',

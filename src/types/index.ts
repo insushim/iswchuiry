@@ -63,6 +63,17 @@ export interface Alibi {
   verificationMethod?: string;
 }
 
+// 캐릭터 신체 프로필 (간접 증거 시스템)
+export interface PhysicalProfile {
+  height: '단신' | '보통키' | '장신';
+  build: '마른' | '보통체격' | '건장한';
+  handedness: '왼손잡이' | '오른손잡이';
+  shoeSize: number; // 230-280
+  distinctiveFeature: string; // "안경 착용", "짧은 머리" 등
+  bloodType: 'A' | 'B' | 'O' | 'AB';
+  accessAreas: string[]; // 특수 구역 접근 가능 여부
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -73,6 +84,7 @@ export interface Character {
   description: string;
   appearance: string;
   background: string;
+  physicalProfile: PhysicalProfile;
   alibi: Alibi;
   motive: Motive | null;
   relationships: Relationship[];
@@ -322,6 +334,13 @@ export interface CaseContradiction {
   isCritical: boolean;
 }
 
+// 선택식 추론 (드롭다운 기반)
+export interface SelectionDeduction {
+  suspectId: string | null;
+  motiveType: string | null;
+  keyEvidenceId: string | null;
+}
+
 export interface GameState {
   currentCase: Case | null;
   phase: GamePhase;
@@ -346,6 +365,10 @@ export interface GameState {
   // v5: Puzzle chain state
   puzzleProgress: import('./puzzles').PuzzleProgress[];
   currentPuzzleIndex: number;
+  // v7: 용의자 메모 보드 + 선택식 추론
+  suspectNotes: Record<string, 'suspected' | 'eliminated' | 'unknown'>;
+  selectionDeduction: SelectionDeduction;
+  hintLevel: number; // 같은 증거에 대한 힌트 깊이 (0-2)
   // Scoring
   hintsUsed: number;
   hintsRemaining: number;

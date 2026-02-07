@@ -66,20 +66,84 @@ export function InterrogationPhase() {
 
     setDialogues(prev => [...prev, { text: `${evidence.name}을(를) 제시했다.`, type: 'player' }]);
 
-    const unrevealed = character.secrets.find(s => !s.isRevealed);
-    if (unrevealed) {
-      const revealed = revealSecret(currentCharacter, unrevealed.id);
-      if (revealed) {
-        setDialogues(prev => [
-          ...prev,
-          { text: `${character.name}의 표정이 변했다...`, type: 'system' },
-          { text: `사실은... ${unrevealed.content}`, type: 'reveal' }
-        ]);
-      } else {
-        setDialogues(prev => [...prev, { text: '그게 저와 무슨 상관이죠?', type: 'npc' }]);
+    const isCulprit = character.isCulprit;
+    const isRelevant = evidence.linkedCharacters.includes(character.id) || evidence.isCritical;
+
+    // 범인에게 관련 증거를 제시하면 → 동요 반응
+    if (isCulprit && isRelevant) {
+      const nervousResponses = [
+        '...! 그, 그건... 어디서 찾은 거죠?',
+        '(잠시 침묵) ...그것과 저는 관계없습니다.',
+        '왜 저한테 그걸 보여주시는 건가요? (목소리가 떨린다)',
+        '그건... 아마 누구든 할 수 있는 거 아닌가요?',
+        '(눈을 피하며) 글쎄요, 잘 모르겠는데요...',
+      ];
+      setDialogues(prev => [
+        ...prev,
+        { text: `${character.name}이(가) 순간 당황한 기색을 보인다.`, type: 'system' },
+        { text: nervousResponses[Math.floor(Math.random() * nervousResponses.length)], type: 'npc' }
+      ]);
+
+      // 동요 후 비밀 공개 가능
+      const unrevealed = character.secrets.find(s => !s.isRevealed);
+      if (unrevealed) {
+        const revealed = revealSecret(currentCharacter, unrevealed.id);
+        if (revealed) {
+          setDialogues(prev => [
+            ...prev,
+            { text: `압박에 못 이겨 ${character.name}이(가) 입을 열었다...`, type: 'system' },
+            { text: `사실은... ${unrevealed.content}`, type: 'reveal' }
+          ]);
+        }
       }
-    } else {
-      setDialogues(prev => [...prev, { text: '이미 아는 내용이에요.', type: 'npc' }]);
+    }
+    // 범인에게 무관한 증거 → 자신감 있는 반응
+    else if (isCulprit && !isRelevant) {
+      const calmResponses = [
+        '그건 저와는 관계없는 것 같은데요.',
+        '흥미롭네요. 하지만 제가 알 바는 아닌 것 같습니다.',
+        '그게 사건과 어떤 관련이 있나요?',
+      ];
+      setDialogues(prev => [
+        ...prev,
+        { text: calmResponses[Math.floor(Math.random() * calmResponses.length)], type: 'npc' }
+      ]);
+    }
+    // 무고한 사람에게 증거 제시 → 도움되는 반응
+    else if (!isCulprit && isRelevant) {
+      const helpfulResponses = [
+        `음, 이건... 혹시 ${character.alibi.activity} 할 때 봤던 것 같기도 해요.`,
+        '이거 어디서 찾았어요? 저도 비슷한 걸 본 적 있는데...',
+        '이 증거라면, 다른 사람에게 물어보는 게 좋을 것 같아요.',
+      ];
+      setDialogues(prev => [
+        ...prev,
+        { text: helpfulResponses[Math.floor(Math.random() * helpfulResponses.length)], type: 'npc' }
+      ]);
+
+      const unrevealed = character.secrets.find(s => !s.isRevealed);
+      if (unrevealed) {
+        const revealed = revealSecret(currentCharacter, unrevealed.id);
+        if (revealed) {
+          setDialogues(prev => [
+            ...prev,
+            { text: `${character.name}이(가) 도움을 주려 한다.`, type: 'system' },
+            { text: `참, 이건 알려드릴게요. ${unrevealed.content}`, type: 'reveal' }
+          ]);
+        }
+      }
+    }
+    // 무고한 사람에게 무관한 증거 → 모르는 반응
+    else {
+      const unknownResponses = [
+        '그건 잘 모르겠어요.',
+        '처음 보는 건데요?',
+        '그게 뭔지는 알겠는데, 저는 관련 없어요.',
+      ];
+      setDialogues(prev => [
+        ...prev,
+        { text: unknownResponses[Math.floor(Math.random() * unknownResponses.length)], type: 'npc' }
+      ]);
     }
   };
 
